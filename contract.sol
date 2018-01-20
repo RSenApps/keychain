@@ -30,6 +30,8 @@ contract Keychain {
   mapping(address => Resource[]) key_to_resources;
   mapping(string => Keys) resource_to_keys;
 
+  mapping(string => address) resource_to_owner;
+
 
   /* Transaction functions */
 
@@ -45,27 +47,36 @@ contract Keychain {
   }
 
   function Create_resource(string resource) public returns(bool) {
+
     if(resource_list.resources[resource]) {
       return false;
     }
+    resource_to_owner[resource] = msg.sender;
     resource_list.resources[resource] = true;
     /* assignd to empty list automatically...? */
     return true;
   }
 
-  function Give_access_to_public_key(string resource, address pub_key) public {
+  function Give_access_to_public_key(string resource, address pub_key) public returns(bool){
+
+    require(msg.sender == resource_to_owner[resource]);
     if(resource_list.resources[resource]) {
       key_to_resources[pub_key].push(Resource(resource)); /* will cause duplicates */
       resource_to_keys[resource].keys[pub_key] = true;
+      return true;
     }
+    return false;
   }
 
-  function Share_access(string resource, address my_pub_key, address their_pub_key) public {
+  function Share_access(string resource, address my_pub_key, address their_pub_key) public returns(bool){
+    require(resource_to_keys[resource].keys[msg.sender]);
     if(resource_list.resources[resource] && key_list.keys[my_pub_key] && key_list.keys[their_pub_key]) {
       if(resource_to_keys[resource].keys[my_pub_key]) {
         resource_to_keys[resource].keys[their_pub_key] = true;
+        return true;
       }
     }
+    return false;
   }
 
 
