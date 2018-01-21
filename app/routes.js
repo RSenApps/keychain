@@ -74,7 +74,8 @@ function isLoggedIn(req, res, next) {
     var instance = contract.at(contractAddress);
     console.log("HELLO");
     var email = req["user"]["local"]["email"];
-    instance.Query_access.call("bank", email, callback=function(err, result) {
+    console.log(email);
+    instance.Query_access_username.call("bank", email, callback=function(err, result) {
         if(err) {
             console.log(err);
         } else {
@@ -89,6 +90,7 @@ function isLoggedIn(req, res, next) {
             //    return done(null, user);
             //});
         }
+        res.redirect('/login');
     });
  
 }
