@@ -113,7 +113,6 @@ module.exports = function(passport) {
                 console.log('create resource');
                 sendRaw(rawTx1);
                 console.log('key access');
-                console.log(i);
                 var rawTx2 = txutils.functionTx(interface, 'Give_access_to_public_key', ["bank", newUser.local.password], txOptions);
                 sendRaw(rawTx2);
                 
