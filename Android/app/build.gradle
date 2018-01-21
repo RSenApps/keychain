@@ -4,7 +4,7 @@ android {
     compileSdkVersion 27
     defaultConfig {
         applicationId "keychain.com.keychain"
-        minSdkVersion 21
+        minSdkVersion 23
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
@@ -19,13 +19,20 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.google.firebase:firebase-messaging:11.8.0'
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
-    implementation 'com.google.firebase:firebase-messaging:11.0.4'
+    compile 'com.android.volley:volley:1.1.0'
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+    compile 'com.android.support:design:23.1.0'
+    compile 'com.github.kenglxn.QRGen:android:2.4.0'
+    compile 'com.github.ajalt.reprint:core:3.2.1@aar' // required: supports marshmallow devices
+    compile 'com.github.ajalt.reprint:reprint_spass:3.2.1@aar' // optional: support for pre-marshmallow Samsung devices
+
 
 }
+
+
 
 
 apply plugin: 'com.google.gms.google-services'
