@@ -8,7 +8,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.nfc.NdefMessage;
+import android.nfc.NdefRecord;
+import android.nfc.NfcAdapter;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
@@ -28,14 +32,26 @@ import com.github.ajalt.reprint.core.Reprint;
 
 import net.glxn.qrgen.android.QRCode;
 
+import static android.nfc.NdefRecord.createMime;
+
 public class MainActivity extends AppCompatActivity {
+    NfcAdapter mNfcAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (mNfcAdapter == null) {
+            Toast.makeText(this, "NFC is not available", Toast.LENGTH_LONG).show();
+            return;
+        }
+        NdefMessage msg = new NdefMessage(
+                new NdefRecord[] { createMime(
+                        "application/vnd.com.keychain.auth.request", getSharedPreferences("prefs", MODE_PRIVATE).getString("public_key", "").getBytes()), NdefRecord.createApplicationRecord("keychain.com.keychain")});
+        mNfcAdapter.setNdefPushMessage(msg, this);
     }
+
 
     @Override
     protected void onPause() {
@@ -46,12 +62,59 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (getIntent().getBooleanExtra("fromnotification", false))
+        {
+            final String challenge = getIntent().getStringExtra("challenge");
+            final String callback_url = getIntent().getStringExtra("callback_url");
+            final String resource = getIntent().getStringExtra("resource");
+
+            final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(this);
+            LayoutInflater factory = LayoutInflater.from(this);
+            final View view = factory.inflate(R.layout.dialog_fingerprint, null);
+            fingerprintDialog.setView(view);
+            fingerprintDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dlg, int sumthin) {
+                    Reprint.cancelAuthentication();
+                    dlg.dismiss();
+                }
+            });
+            final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+            final AlertDialog dialog = fingerprintDialog.create();
+            Reprint.authenticate(new AuthenticationListener() {
+                public void onSuccess(int moduleTag) {
+                    dialog.dismiss();
+
+                    //finish challenge
+
+                    Toast.makeText(MainActivity.this, challenge + callback_url + resource, Toast.LENGTH_LONG).show();
+
+                }
+
+                public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
+                                      CharSequence errorMessage, int moduleTag, int errorCode) {
+                    Toast.makeText(MainActivity.this, "Authentication Failed. Please try again", Toast.LENGTH_SHORT).show();
+                }
+            });
+            dialog.show();
+        }
+        // Check to see that the Activity started due to an Android Beam
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(getIntent().getAction())) {
+            Parcelable[] rawMsgs = getIntent().getParcelableArrayExtra(
+                    NfcAdapter.EXTRA_NDEF_MESSAGES);
+            // only one message sent during the beam
+            NdefMessage msg = (NdefMessage) rawMsgs[0];
+            // record 0 contains the MIME type, record 1 is the AAR, if present
+            Toast.makeText(this, new String(msg.getRecords()[0].getPayload()), Toast.LENGTH_LONG).show();
+
+            //TODO: Send message to API asking to authenticate and challenge user, once it has completed send me a push back with list of services that has access to
+        }
+
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        /*if(prefs.getString("username", null) == null) {
+        if(prefs.getString("username", null) == null) {
             Intent i = new Intent(this, RegisterActivity.class);
             startActivity(i);
             finish();
-        }*/
+        }
         getSupportActionBar().setTitle(prefs.getString("username", "KeyChain"));
 
         ListView listView = (ListView) findViewById(R.id.listview_with_fab);
@@ -95,6 +158,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        // onResume gets called after this to handle the intent
+        setIntent(intent);
     }
 
     @Override
