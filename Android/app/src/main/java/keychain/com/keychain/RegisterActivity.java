@@ -3,13 +3,16 @@ package keychain.com.keychain;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -22,7 +25,8 @@ import java.net.URLEncoder;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class RegisterActivity extends Activity {
@@ -46,16 +50,8 @@ public class RegisterActivity extends Activity {
                     }
                     else {
                         RequestQueue queue = Volley.newRequestQueue(RegisterActivity.this);
-                        String url = "https://l6g44s18fj.execute-api.us-east-1.amazonaws.com/prod/"; //FILL API register
+                        String url = "http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/register_username/"; //FILL API register
 
-                        try {
-                            url += "username=" + URLEncoder.encode(((EditText) findViewById(R.id.username)).getText().toString(), "UTF-8") + "&key=" + URLEncoder.encode(sharedPref.getString("public_key", null), "UTF-8");
-                            if (sharedPref.getString("firebase_token", null) != null) {
-                                url += "&UID=" + sharedPref.getString("firebase_token", null);
-                            }
-                        } catch (UnsupportedEncodingException e) {
-                            e.printStackTrace();
-                        }
                         final ProgressDialog progress = new ProgressDialog(RegisterActivity.this);
                         progress.setMessage("Creating Account");
                         progress.setIndeterminate(true);
@@ -67,7 +63,8 @@ public class RegisterActivity extends Activity {
                                     @Override
                                     public void onResponse(String response) {
                                         progress.dismiss();
-                                        //Go to next activity
+                                        sharedPref.edit().putString("username", ((EditText) findViewById(R.id.username)).getText().toString()).apply();
+                                        startActivity(new Intent(RegisterActivity.this, MainActivity.class));
                                     }
                                 }, new Response.ErrorListener() {
                             @Override
@@ -75,7 +72,25 @@ public class RegisterActivity extends Activity {
                                 progress.dismiss();
                                 Toast.makeText(RegisterActivity.this, "Request to Server failed. Please try again.", Toast.LENGTH_LONG).show();
                             }
-                        });
+                        }
+                        ){
+                            @Override
+                            protected Map<String, String> getParams() throws AuthFailureError {
+                                Map<String,String> params = new HashMap<String, String>();
+                                try {
+                                    params.put("username", ((EditText) findViewById(R.id.username)).getText().toString());
+                                    params.put("public_key", sharedPref.getString("public_key", null));
+                                    Log.d("IMFEFE", sharedPref.getString("public_key", null));
+                                    if (sharedPref.getString("firebase_token", null) != null) {
+                                        params.put("uid", sharedPref.getString("firebase_token", null));
+                                    }
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                                return params;
+                            }
+                        };
                         queue.add(stringRequest);
                     }
 

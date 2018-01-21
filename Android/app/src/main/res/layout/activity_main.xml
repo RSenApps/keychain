@@ -19,6 +19,6 @@
         android:layout_marginBottom="16dp"
         android:layout_marginRight="16dp"
         android:clickable="true"
-        android:src="@drawable/ic_file_download"
+        android:src="@drawable/ic_action_key"
         app:elevation="4dp" />
 </RelativeLayout>

@@ -1,9 +1,13 @@
 package keychain.com.keychain;
 
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
@@ -24,46 +28,33 @@ import com.google.firebase.messaging.RemoteMessage;
 
 public class PushNotificationService extends FirebaseMessagingService {
     @Override
-    public void onMessageReceived(RemoteMessage remoteMessage) {
+    public void onMessageReceived(final RemoteMessage remoteMessage) {
         // ...
-        final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(this);
-        LayoutInflater factory = LayoutInflater.from(this);
-        final View view = factory.inflate(R.layout.dialog_fingerprint, null);
-        fingerprintDialog.setView(view);
-        fingerprintDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            public void onClick(DialogInterface dlg, int sumthin) {
-                Reprint.cancelAuthentication();
-                dlg.dismiss();
-            }
-        });
-        final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        final AlertDialog dialog = fingerprintDialog.create();
-        Reprint.authenticate(new AuthenticationListener() {
-            public void onSuccess(int moduleTag) {
-                dialog.dismiss();
+        NotificationManager notificationManager = (NotificationManager)
+                getSystemService(NOTIFICATION_SERVICE);
 
-                //finish challenge
-
-            }
-
-            public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
-                                  CharSequence errorMessage, int moduleTag, int errorCode) {
-                Toast.makeText(PushNotificationService.this, "Authentication Failed. Please try again", Toast.LENGTH_SHORT).show();
-            }
-        });
+        String challenge = remoteMessage.getData().get("challenge");
+        String callback_url = remoteMessage.getData().get("callback_url");
+        String resource = remoteMessage.getData().get("resource");
 
 
-
-        dialog.show();
-        // TODO(developer): Handle FCM messages here.
-        // Not getting messages here? See why this may be: https://goo.gl/39bRNJ
-        Log.d("PushNotification", "From: " + remoteMessage.getFrom());
-
-        // Check if message contains a data payload.
-        if (remoteMessage.getData().size() > 0) {
-            Log.d("PushNotification", "Message data payload: " + remoteMessage.getData());
+        PendingIntent pIntent = PendingIntent.getActivity(getApplicationContext(), 0,
+                new Intent(getApplicationContext(), MainActivity.class).putExtra("fromnotification", true)
+                        .putExtra("challenge", challenge).putExtra("callback_url", callback_url).putExtra("resource",  resource), 0);
 
 
-        }
+// build notification
+// the addAction re-use the same intent to keep the example short
+        Notification n  = new Notification.Builder(this)
+                .setContentTitle("KeyChain Challenge")
+                .setContentText(resource + " is requesting authentication")
+                .setSmallIcon(R.drawable.ic_action_key)
+                .setAutoCancel(true)
+                .setContentIntent(pIntent).build();
+
+
+        notificationManager.notify(0, n);
+
+
     }
 }
