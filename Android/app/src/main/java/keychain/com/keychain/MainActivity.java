@@ -1,6 +1,7 @@
 package keychain.com.keychain;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -15,22 +16,40 @@ import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Base64;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.github.ajalt.reprint.core.AuthenticationFailureReason;
 import com.github.ajalt.reprint.core.AuthenticationListener;
 import com.github.ajalt.reprint.core.Reprint;
 
 import net.glxn.qrgen.android.QRCode;
+
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.HashMap;
+import java.util.Map;
 
 import static android.nfc.NdefRecord.createMime;
 
@@ -83,9 +102,38 @@ public class MainActivity extends AppCompatActivity {
             Reprint.authenticate(new AuthenticationListener() {
                 public void onSuccess(int moduleTag) {
                     dialog.dismiss();
+                    try {
+                        PrivateKey key = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(Cryptography.base64DecodeKey(prefs.getString("private_key", ""))));
+                        final String response = new String(Cryptography.decrypt(key, Cryptography.base64DecodeKey(challenge)));
+                        Toast.makeText(MainActivity.this, "Decrypted:" + response, Toast.LENGTH_LONG).show();
 
+                        // Request a string response from the provided URL.
+                        StringRequest stringRequest = new StringRequest(Request.Method.POST, callback_url,
+                                new Response.Listener<String>() {
+                                    @Override
+                                    public void onResponse(String response) {
+                                        Toast.makeText(MainActivity.this, "Authenticated", Toast.LENGTH_LONG).show();
+                                    }
+                                }, new Response.ErrorListener() {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                Toast.makeText(MainActivity.this, "Request to Server failed. Please try again.", Toast.LENGTH_LONG).show();
+                            }
+                        }
+                        ){
+                            @Override
+                            protected Map<String, String> getParams() throws AuthFailureError {
+                                Map<String,String> params = new HashMap<String, String>();
+                                params.put("response", response);
+                                return params;
+                            }
+                        };
+                        RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+                        queue.add(stringRequest);
+                    }  catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     //finish challenge
-
                     Toast.makeText(MainActivity.this, challenge + callback_url + resource, Toast.LENGTH_LONG).show();
 
                 }
