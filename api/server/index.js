@@ -3,7 +3,7 @@ var bodyParser = require('body-parser')
  
 var app = express()
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({extended: false}))
+app.use(bodyParser.urlencoded({extended: true}))
 
 var levelup = require('levelup')
 var leveldown = require('leveldown')
@@ -57,9 +57,8 @@ app.post('/register_username', function(req, res) {
     return
   }
   //TODO: Add username to blockchain
-
-  if(!req.body.uid || typeof req.body.uid != "string") {
-   keysToUID.put(req.body.public_key, req.body.uid); 
+  if(req.body.uid && typeof req.body.uid == "string") {
+   keysToUID.put(reg.body.public_key, req.body.uid);
   }
   res.status(200).end()
 });
@@ -88,9 +87,9 @@ app.post('/query_access', function(req, res) {
     return
   }
 
-  keysToUID.get(req.body.public_key, function (err, value) {
+  keysToUID.get(req.body.public_key, { asBuffer: false }, function (err, value) {
     if(err) {
-      res.status(400).send("Device Not Registered");
+      res.status(400).send("Device Not Registered"+err);
       return;
     }
 
@@ -103,8 +102,7 @@ app.post('/query_access', function(req, res) {
         resource: req.body.resource
       }
     };
-
-    admin.messaging().sendToDevice(registrationTokens, payload)
+    admin.messaging().sendToDevice(value, payload)
     .then(function(response) {
       res.status(200).end();
     })
