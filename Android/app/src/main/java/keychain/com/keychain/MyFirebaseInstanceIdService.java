@@ -7,6 +7,7 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -18,6 +19,8 @@ import com.google.firebase.iid.FirebaseInstanceIdService;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by rsen on 1/20/18.
@@ -27,7 +30,7 @@ public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
     @Override
     public void onTokenRefresh() {
         // Get updated InstanceID token.
-        String refreshedToken = FirebaseInstanceId.getInstance().getToken();
+        final String refreshedToken = FirebaseInstanceId.getInstance().getToken();
         Log.d("Token", "Refreshed token: " + refreshedToken);
 
         // If you want to send messages to this application instance or
@@ -37,13 +40,7 @@ public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
         SharedPreferences sharedPref = getSharedPreferences("prefs", Context.MODE_PRIVATE);
         if (sharedPref.getString("username", null) != null) {
             RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-            String url = "https://l6g44s18fj.execute-api.us-east-1.amazonaws.com/prod/"; //FILL API register
-
-            try {
-                url += "username=" + URLEncoder.encode(sharedPref.getString("username", null), "UTF-8") + "&UID=" + URLEncoder.encode(refreshedToken, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
+            String url = "http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/registerUID/";
 
             // Request a string response from the provided URL.
             StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
@@ -58,7 +55,18 @@ public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
                 public void onErrorResponse(VolleyError error) {
                     Toast.makeText(getApplicationContext(), "Failed to refresh UID with server", Toast.LENGTH_LONG).show();
                 }
-            });
+            })
+            {
+                @Override
+                protected Map<String, String> getParams() throws AuthFailureError {
+                    SharedPreferences prefs = getSharedPreferences("prefs" , MODE_PRIVATE);
+                    Map<String,String> params = new HashMap<String, String>();
+                    params.put("public_key", prefs.getString("public_key", null));
+                    params.put("uid",  refreshedToken);
+
+                    return params;
+                }
+            };;
             queue.add(stringRequest);
         }
         SharedPreferences.Editor editor = sharedPref.edit();
