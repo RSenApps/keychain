@@ -1,3 +1,5 @@
+var request = require("request");
+
 module.exports = function(app, passport) {
 
     // =====================================
@@ -83,9 +85,26 @@ function isLoggedIn(req, res, next) {
             console.log(result);
 
             if(result) {
+                
+                var options = { method: 'POST',
+                  url: 'http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/query_access',
+                  headers: 
+                     {'Cache-Control': 'no-cache',
+                     'Content-Type': 'application/x-www-form-urlencoded' },
+                  form: 
+                   { entity: 'Test',
+                     public_key: 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLTODWwO+DOVr2S9KB+NBGV4oTsBfoqMlqIWMZ\nbmSsRW5gs93Ue4PFjyF0POlUEI/YZa04gvAQZGoPv0OhLobmTw9IUmFto1AOcX4/iHwSnMmj3u11\nyckiCqWUap06w4dbqLz9pWfekIxLP2S35z1hhebFWKKi0XBMCo/5YXZBzQIDAQAB',
+                     challenge: 'nHRnaorhjzrDfAIDxL3J10G6YrEmHS43cAlLkvPdv+WrG+qVe/SE0TtJpdPFeDFWxJh0O/wnl3B30fMVdQJvMvb83pan2lOm4+1eXIuoq9KGW6niLMQEXkYTjXzJyIa17lRG1xXKiNfxH4vLhS3y18EuWQdO/5rru/AaI9AE2Mw=',
+                     callback_url: 'callback',
+                     resource: 'MIT' } };
+                
+                request(options, function (error, response, body) {
+                  if (error) throw new Error(error);
+                
+                  console.log(body);
+                });
                 return next();
             }
-
             //User.findOne({ 'local.email' :  email }, function(err, user) {
             //    return done(null, user);
             //});
