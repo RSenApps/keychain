@@ -9,6 +9,7 @@ var levelup = require('levelup')
 var leveldown = require('leveldown')
 
 var admin = require("firebase-admin");
+var crypto = require("crypto");
 
 // 1) Create our store
 var keysToUID = levelup(leveldown('./keysToUID'))
@@ -58,7 +59,8 @@ app.post('/register_username', function(req, res) {
   }
   //TODO: Add username to blockchain
   if(req.body.uid && typeof req.body.uid == "string") {
-   keysToUID.put(reg.body.public_key, req.body.uid);
+   keysToUID.put(req.body.public_key.trim(), req.body.uid);
+   console.log(req.body.public_key)
   }
   res.status(200).end()
 });
@@ -87,7 +89,7 @@ app.post('/query_access', function(req, res) {
     return
   }
 
-  keysToUID.get(req.body.public_key, { asBuffer: false }, function (err, value) {
+  keysToUID.get(req.body.public_key.trim(), { asBuffer: false }, function (err, value) {
     if(err) {
       res.status(400).send("Device Not Registered"+err);
       return;
@@ -112,6 +114,70 @@ app.post('/query_access', function(req, res) {
  });   
    
 })
+
+var encryptStringWithRsaPublicKey = function(toEncrypt,publicKey) {
+    var buffer = new Buffer(toEncrypt);
+    var encrypted = crypto.publicEncrypt(publicKey, buffer);
+    return encrypted.toString("base64");
+};
+
+var uidToReturn = "";
+
+app.post('/query_access_and_return_result', function(req, res) {
+  //TODO: check on blockchain
+  
+   var payload = {
+      data: {
+        challenge: encryptStringWithRsaPublicKey('KeyChain', req.body.public_key),
+        callback_url: 'http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/challenge_response',
+        resource: req.body.resource
+      }
+    };
+keysToUID.get(req.body.return_key.trim(), { asBuffer: false }, function (err, value) {
+    if(err) {
+      res.status(400).send("Sender Device Not Registered"+err);
+      return;
+    }
+
+   uidToReturn = value;
+
+}
+
+keysToUID.get(req.body.public_key.trim(), { asBuffer: false }, function (err, value) {
+    if(err) {
+      res.status(400).send("Device Not Registered"+err);
+      return;
+    }
+
+    //TODO: check on blockchain
+
+    admin.messaging().sendToDevice(value, payload)
+    .then(function(response) {
+      res.status(200).end();
+    })
+    .catch(function(error) {
+      res.status(400).send("Error in push notification" + error);
+    });
+ });
+}
+
+app.post('/challenge_response', function(req, res) {
+  if (req.body.result.indexOf('KeyChain') > -1) {
+    var payload = {
+  notification: {
+    title: "Requested user is authenticated",
+  }
+};
+   admin.messaging().sendToDevice(uidToReturn, payload)
+    .then(function(response) {
+      res.status(200).end();
+    })
+    .catch(function(error) {
+      res.status(400).send("Error in push notification" + error);
+    });
+
+  }
+}
 
 app.get('/list_access_for_key', function(req, res) {
   if(!req.body.public_key || typeof req.body.public_key != "string") {
