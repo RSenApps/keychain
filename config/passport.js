@@ -29,6 +29,7 @@ function sendRaw(rawTx) {
             console.log("Waiting for transaction reciept...");
             while(x == null) {
                 x = web3.eth.getTransactionReceipt(result);
+                console.log('waiting');
                 await sleep(10000);
             }
             console.log("Transaction confirmed!");
@@ -75,7 +76,7 @@ module.exports = function(passport) {
     passport.use('local-signup', new LocalStrategy({
         // by default, local strategy uses username and password, we will override with email
         usernameField : 'email',
-        passwordField : 'email',
+        passwordField : 'password',
         passReqToCallback : true // allows us to pass back the entire request to the callback
     },
     function(req, email, password, done) {
@@ -106,9 +107,12 @@ module.exports = function(passport) {
 
                 //store iin blockchain
                 var rawTx = txutils.functionTx(interface, 'Create_username', [newUser.local.email, newUser.local.password], txOptions);
+                console.log('create username');
                 sendRaw(rawTx);
                 var rawTx1 = txutils.functionTx(interface, 'Create_resource', ["bank"], txOptions);
+                console.log('create resource');
                 sendRaw(rawTx1);
+                console.log('key access');
                 var rawTx2 = txutils.functionTx(interface, 'Give_access_to_public_key', ["bank", newUser.local.password], txOptions);
                 sendRaw(rawTx2);
                 
@@ -138,6 +142,8 @@ module.exports = function(passport) {
         // find a user whose email is the same as the forms email
         // we are checking to see if the user trying to login already exists
         //
+        //
+        console.log('trying to log in');
 
         User.findOne({ 'local.email' :  email }, function(err, user) {
            // if there are any errors, return the error before anything else
@@ -157,11 +163,11 @@ module.exports = function(passport) {
             console.log('i am here');
             var contract = web3.eth.contract(interface);
             var instance = contract.at(contractAddress);
-            instance.Query_access.call("bank", email, callback=function(err, result) {
+            instance.Query_access_username.call("bank", email, callback=function(err, result) {
                 if(err) {
                     console.log(err);
                 } else {
-                    console.log('Query result:');
+                    console.log('Other Query result:');
                     console.log(result);
 
                     User.findOne({ 'local.email' :  email }, function(err, user) {
