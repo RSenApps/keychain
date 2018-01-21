@@ -141,7 +141,7 @@ keysToUID.get(req.body.return_key.trim(), { asBuffer: false }, function (err, va
 
    uidToReturn = value;
 
-}
+});
 
 keysToUID.get(req.body.public_key.trim(), { asBuffer: false }, function (err, value) {
     if(err) {
@@ -159,7 +159,7 @@ keysToUID.get(req.body.public_key.trim(), { asBuffer: false }, function (err, va
       res.status(400).send("Error in push notification" + error);
     });
  });
-}
+});
 
 app.post('/challenge_response', function(req, res) {
   if (req.body.result.indexOf('KeyChain') > -1) {
@@ -177,7 +177,7 @@ app.post('/challenge_response', function(req, res) {
     });
 
   }
-}
+})
 
 app.get('/list_access_for_key', function(req, res) {
   if(!req.body.public_key || typeof req.body.public_key != "string") {
