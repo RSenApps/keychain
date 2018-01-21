@@ -13,6 +13,8 @@
         android:layout_height="wrap_content"
         android:paddingLeft="30dp"
         android:paddingRight="30dp"
+        android:paddingTop="30dp"
+
         android:scaleType="fitCenter"
         android:src="@drawable/ic_logo"
         tools:layout_editor_absoluteX="0dp"
@@ -23,6 +25,23 @@
         android:layout_weight="2"
         android:layout_height="0dp" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:orientation="vertical"
+        android:layout_margin="32dp"
+        android:elevation="20dp"
+        android:padding="5dp"
+        android:background="#FFFFFF"
+        android:layout_height="wrap_content">
+    <EditText
+        android:id="@+id/username"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:layout_margin="8dp"
+        android:theme="@style/Theme.AppCompat.Light"
+        android:inputType="textPersonName"
+        android:hint="Username" />
 
     <Button
         android:id="@+id/register"
@@ -30,22 +49,15 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:layout_marginStart="8dp"
-        android:text="Create Wallet"
+        android:text="Create New Wallet"
         android:textSize="16sp"
+        android:layout_marginBottom="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent" />
-    <Button
-        android:id="@+id/login"
+    </LinearLayout>
+    <Space
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginBottom="16dp"
-        android:textSize="16sp"
-        android:text="Login with Private Key"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintStart_toStartOf="parent" />
-
+        android:layout_weight="1"
+        android:layout_height="0dp" />
 </LinearLayout>
