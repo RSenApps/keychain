@@ -20,6 +20,11 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.github.ajalt.reprint.core.AuthenticationFailureReason;
+import com.github.ajalt.reprint.core.AuthenticationListener;
+import com.github.ajalt.reprint.core.Reprint;
 
 import net.glxn.qrgen.android.QRCode;
 
@@ -30,6 +35,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Reprint.cancelAuthentication();
     }
 
     @Override
@@ -109,37 +120,65 @@ public class MainActivity extends AppCompatActivity {
                 finish();
                 return true;
             case R.id.action_export:
-                AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
-                alertDialog.setTitle("Export Keys");
-                TextView showText = new TextView(this);
-                showText.setPadding(30, 30, 30, 0);
-                showText.setText("Public Key: " + prefs.getString("public_key", "") + "\nPrivate Key: " + prefs.getString("private_key", "")
-                        + "\n\nKeyChain keys are not the same as Ethereum keys, do not send Ethereum to this address. This private key gives access to all of your resources, please be careful.");
-                showText.setTextIsSelectable(true);
-                alertDialog.setView(showText);
-                alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Private Key",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                                ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("private_key", ""));
-                                clipboard.setPrimaryClip(clip);
-                            }
-                        });
-                alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "Copy Public Key",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                                ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("public_key", ""));
-                                clipboard.setPrimaryClip(clip);
-                            }
-                        });
-                alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Done",
-                        new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int which) {
-                                dialog.dismiss();
-                            }
-                        });
-                alertDialog.show();
+
+                final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(MainActivity.this);
+                LayoutInflater factory = LayoutInflater.from(MainActivity.this);
+                final View view = factory.inflate(R.layout.dialog_fingerprint, null);
+                fingerprintDialog.setView(view);
+                fingerprintDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dlg, int sumthin) {
+                        Reprint.cancelAuthentication();
+                        dlg.dismiss();
+                    }
+                });
+                final AlertDialog dialog = fingerprintDialog.create();
+                Reprint.authenticate(new AuthenticationListener() {
+                    public void onSuccess(int moduleTag) {
+                        dialog.dismiss();
+                        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+                        alertDialog.setTitle("Export Keys");
+                        TextView showText = new TextView(MainActivity.this);
+                        showText.setPadding(30, 30, 30, 0);
+                        showText.setText("Public Key: " + prefs.getString("public_key", "") + "\nPrivate Key: " + prefs.getString("private_key", "")
+                                + "\n\nKeyChain keys are not the same as Ethereum keys, do not send Ethereum to this address. This private key gives access to all of your resources, please be careful.");
+                        showText.setTextIsSelectable(true);
+                        alertDialog.setView(showText);
+                        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Private Key",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("private_key", ""));
+                                        clipboard.setPrimaryClip(clip);
+                                    }
+                                });
+                        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "Copy Public Key",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("public_key", ""));
+                                        clipboard.setPrimaryClip(clip);
+                                    }
+                                });
+                        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Done",
+                                new DialogInterface.OnClickListener() {
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dialog.dismiss();
+                                    }
+                                });
+                        alertDialog.show();
+                    }
+
+                    public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
+                                          CharSequence errorMessage, int moduleTag, int errorCode) {
+                        Toast.makeText(MainActivity.this, "Authentication Failed. Please try again", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+
+
+                dialog.show();
+
+
 
                 return true;
             default:
