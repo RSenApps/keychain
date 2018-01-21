@@ -1,50 +1,49 @@
 // config/passport.js
 
-// load all the things we need
 var LocalStrategy   = require('passport-local').Strategy;
-var Web3 = require('web3');
-//var web3 = new Web3();
-//var web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
-//var web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
-//web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
-
 var util = require('ethereumjs-util');
 var tx = require('ethereumjs-tx');
 var lightwallet = require('eth-lightwallet');
 var txutils = lightwallet.txutils;
-
-var web3 = new Web3(
-    new Web3.providers.HttpProvider('https://ropsten.infura.io/')
-);
-
-var address = "0xD1E90a9E4Cd458CfFe191FCa01fF641832a9C0dB";
-var key = "d82530369ecc87b2d9adc9821a4d7246f2bb3cf5c5b55cb3d2224f0138235599";
-//
-//if (typeof web3 !== 'undefined') {
-//  web3 = new Web3(web3.currentProvider);
-//} else {
-//  // set the provider you want from Web3.providers
-//  web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
-//}
-console.log(web3.isConnected());
-
-web3.version.getNetwork((err, netId) => {
-  switch (netId) {
-    case "1":
-      console.log('This is mainnet')
-      break
-    case "2":
-      console.log('This is the deprecated Morden test network.')
-      break
-    case "3":
-      console.log('This is the ropsten test network.')
-      break
-    default:
-      console.log('This is an unknown network.')
-  }
-})
 // load up the user model
-var User            = require('../app/models/user');
+var User = require('../app/models/user');
+
+
+function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function sendRaw(rawTx) {
+    var privateKey = new Buffer(key, 'hex');
+    var transaction = new tx(rawTx);
+    transaction.sign(privateKey);
+    var serializedTx = transaction.serialize().toString('hex');
+    web3.eth.sendRawTransaction(
+    '0x' + serializedTx, async function(err, result) {
+        if(err) {
+            console.log(err);
+        } else {
+            //console.log('Success! result below');
+            console.log(result);
+            var x = null;
+            console.log("Waiting for transaction reciept...");
+            while(x == null) {
+                x = web3.eth.getTransactionReceipt(result);
+                await sleep(10000);
+            }
+            console.log("Transaction confirmed!");
+            console.log(x)
+        }
+    });
+}
+
+
+var txOptions = {
+    nonce: web3.toHex(web3.eth.getTransactionCount(address)),
+    gasLimit: web3.toHex(800000),
+    gasPrice: web3.toHex(40000000000),
+    to: contractAddress
+}
 
 // expose this function to our app using module.exports
 module.exports = function(passport) {
@@ -76,7 +75,7 @@ module.exports = function(passport) {
     passport.use('local-signup', new LocalStrategy({
         // by default, local strategy uses username and password, we will override with email
         usernameField : 'email',
-        passwordField : 'password',
+        passwordField : 'email',
         passReqToCallback : true // allows us to pass back the entire request to the callback
     },
     function(req, email, password, done) {
@@ -103,8 +102,17 @@ module.exports = function(passport) {
 
                 // set the user's local credentials
                 newUser.local.email    = email;
-                newUser.local.password = newUser.generateHash(password);
+                newUser.local.password = password;
 
+                //store iin blockchain
+                var rawTx = txutils.functionTx(interface, 'Create_username', [newUser.local.email, newUser.local.password], txOptions);
+                sendRaw(rawTx);
+                var rawTx1 = txutils.functionTx(interface, 'Create_resource', ["bank"], txOptions);
+                sendRaw(rawTx1);
+                var rawTx2 = txutils.functionTx(interface, 'Give_access_to_public_key', ["bank", newUser.local.password], txOptions);
+                sendRaw(rawTx2);
+                
+          
                 // save the user
                 newUser.save(function(err) {
                     if (err)
@@ -112,51 +120,7 @@ module.exports = function(passport) {
                     return done(null, newUser);
                 });
 
-                var contract_address = "0xb27C54D55877Bd5758Df81382C4e93a4061Bc606";
-
-function sendRaw(rawTx) {
-    var privateKey = new Buffer(key, 'hex');
-    var transaction = new tx(rawTx);
-    transaction.sign(privateKey);
-    var serializedTx = transaction.serialize().toString('hex');
-    web3.eth.sendRawTransaction(
-    '0x' + serializedTx, function(err, result) {
-        if(err) {
-            console.log(err);
-        } else {
-            console.log(result);
-        }
-    });
-}
-
-                //send blockchain transaction
-                var abi = 
-[{"constant":true,"inputs":[{"name":"resource","type":"string"},{"name":"key","type":"string"}],"name":"Query_access","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"username","type":"string"},{"name":"key","type":"string"}],"name":"Create_username","outputs":[{"name":"","type":"bool"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"resource","type":"string"}],"name":"Create_resource","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"resource","type":"string"},{"name":"my_pub_key","type":"string"},{"name":"their_pub_key","type":"string"}],"name":"Share_access","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"resource","type":"string"},{"name":"pub_key","type":"string"}],"name":"Give_access_to_public_key","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"key","type":"string"}],"name":"List_access_for_user","outputs":[{"components":[{"name":"resource","type":"string"}],"name":"","type":"tuple[]"}],"payable":false,"stateMutability":"view","type":"function"}];
-                var myContract =  web3.eth.contract(abi); // '0x8F37c0cF45641bB04eB6c0c4F983bCAD6C3519c4');
-                var myContractInstance = myContract.at(contract_address);
-                console.log(newUser.local.email);
-                var address = "0xD1E90a9E4Cd458CfFe191FCa01fF641832a9C0dB";
-                console.log(web3.isAddress(address));
-
-
-                var txOptions = {
-                    nonce: web3.toHex(web3.eth.getTransactionCount(address)),
-                    gasLimit: web3.toHex(800000),
-                    gasPrice: web3.toHex(20000000000),
-                    to: contractAddress
-                }
-                var rawTx = txutils.functionTx(interface, 'vote', [4], txOptions);
-                sendRaw(rawTx);
-                //var r = myContractInstance.List_access_for_user("sarah", "fake key blah blah");
-
-                //myContract.Register('address', {from: address});
-                //web3.eth.defaultAccount=web3.eth.accounts[0]
-                var result = myContractInstance.Create_username("sarah", address, {value: 0, gas: 2000, from: address});
-
-                console.log(result)
-               //define callback later 
-                
-            }
+           }
 
         });    
 
@@ -164,32 +128,51 @@ function sendRaw(rawTx) {
 
     }));
 
-    passport.use('local-login', new LocalStrategy({
+    passport.use( new LocalStrategy({
         // by default, local strategy uses username and password, we will override with email
         usernameField : 'email',
-        passwordField : 'password',
+        passwordField : 'email',
         passReqToCallback : true // allows us to pass back the entire request to the callback
     },
     function(req, email, password, done) { // callback with email and password from our form
-
         // find a user whose email is the same as the forms email
         // we are checking to see if the user trying to login already exists
+        //
+
         User.findOne({ 'local.email' :  email }, function(err, user) {
-            // if there are any errors, return the error before anything else
-            if (err)
-                return done(err);
+           // if there are any errors, return the error before anything else
+           if (err )
+               return done(err);
 
-            // if no user is found, return the message
-            if (!user)
-                return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
+           // if no user is found, return the message
+           if (!user)
+               return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
 
-            // if the user is found but the password is wrong
-            if (!user.validPassword(password))
-                return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
+           // if the user is found but the password is wrong
+//           if (!user.validPassword(password))
+//               return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
+//
+//
+             // QUERY FROM BLOCKCHAIN
+            console.log('i am here');
+            var contract = web3.eth.contract(interface);
+            var instance = contract.at(contractAddress);
+            instance.Query_access.call("bank", email, callback=function(err, result) {
+                if(err) {
+                    console.log(err);
+                } else {
+                    console.log('Query result:');
+                    console.log(result);
 
-            // all is well, return successful user
-            return done(null, user);
-        });
+                    User.findOne({ 'local.email' :  email }, function(err, user) {
+                        return done(null, user);
+                    });
+                }
+            });
+
+
+           return done(null, user);
+       });
 
     }));
 
