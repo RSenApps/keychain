@@ -8,6 +8,8 @@ var txutils = lightwallet.txutils;
 // load up the user model
 var User = require('../app/models/user');
 
+var pending = 0;
+
 
 function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
@@ -38,13 +40,6 @@ function sendRaw(rawTx) {
     });
 }
 
-
-var txOptions = {
-    nonce: web3.toHex(web3.eth.getTransactionCount(address)),
-    gasLimit: web3.toHex(800000),
-    gasPrice: web3.toHex(40000000000),
-    to: contractAddress
-}
 
 // expose this function to our app using module.exports
 module.exports = function(passport) {
@@ -105,15 +100,42 @@ module.exports = function(passport) {
                 newUser.local.email    = email;
                 newUser.local.password = password;
 
+                pending = 0;
                 //store iin blockchain
+
+                var txOptions = {
+                    nonce: web3.toHex(web3.eth.getTransactionCount(address, 'pending')),
+                    gasLimit: web3.toHex(800000),
+                    gasPrice: web3.toHex(40000000000),
+                    to: contractAddress
+                }
+                console.log(txOptions);
                 var rawTx = txutils.functionTx(interface, 'Create_username', [newUser.local.email, newUser.local.password], txOptions);
                 console.log('create username');
                 sendRaw(rawTx);
-                var rawTx1 = txutils.functionTx(interface, 'Create_resource', ["bank"], txOptions);
-                console.log('create resource');
-                sendRaw(rawTx1);
-                console.log('key access');
-                var rawTx2 = txutils.functionTx(interface, 'Give_access_to_public_key', ["bank", newUser.local.password], txOptions);
+
+
+
+                //var txOptions1 = {
+                //    nonce: web3.toHex(1 + web3.eth.getTransactionCount(address, 'pending')),
+                //    gasLimit: web3.toHex(800000),
+                //    gasPrice: web3.toHex(40000000000),
+                //    to: contractAddress
+                //}
+                //console.log(txOptions1);
+                //var rawTx1 = txutils.functionTx(interface, 'Create_resource', ["bank"], txOptions1);
+                //console.log('create resource');
+                //sendRaw(rawTx1);
+                //console.log('key access');
+                
+                var txOptions2 = {
+                    nonce: web3.toHex(1 + web3.eth.getTransactionCount(address, 'pending')),
+                    gasLimit: web3.toHex(800000),
+                    gasPrice: web3.toHex(40000000000),
+                    to: contractAddress
+                }
+                console.log(txOptions2);
+                var rawTx2 = txutils.functionTx(interface, 'Give_access_to_public_key', ["bank", newUser.local.password], txOptions2);
                 sendRaw(rawTx2);
                 
           
