@@ -1,7 +1,5 @@
 package keychain.com.keychain;
 
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
 import java.security.AlgorithmParameterGenerator;
@@ -52,39 +50,23 @@ public class Cryptography {
         return Base64.decode(base64, Base64.DEFAULT);
     }
 
-    public static void buildKeyPair() throws NoSuchAlgorithmException {
+    public static KeyPair buildKeyPair() throws NoSuchAlgorithmException {
         final int keySize = 1024;
-        try {
-            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "AndroidKeyStore");
-            keyStore.load(null);
-
-            keyPairGenerator.initialize(new KeyGenParameterSpec.Builder("KeyChainKey",
-                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                    .setUserAuthenticationRequired(true)
-                    .build());
-
-            keyPairGenerator.genKeyPair();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(keySize);
+        return keyPairGenerator.genKeyPair();
     }
 
     public static byte[] encrypt(PrivateKey privateKey, String message) throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-        KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry("KeyChainKey", null);
         Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, privateKeyEntry.getCertificate().getPublicKey());
+        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
 
         return cipher.doFinal(message.getBytes());
     }
 
     public static byte[] decrypt(PublicKey publicKey, byte [] encrypted) throws Exception {
-        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-        KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry("KeyChainKey", null);
         Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, privateKeyEntry.getPrivateKey());
+        cipher.init(Cipher.DECRYPT_MODE, publicKey);
 
         return cipher.doFinal(encrypted);
     }

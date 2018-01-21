@@ -26,6 +26,9 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     compile 'com.android.support:design:23.1.0'
     compile 'com.github.kenglxn.QRGen:android:2.4.0'
+    compile 'com.github.ajalt.reprint:core:3.2.1@aar' // required: supports marshmallow devices
+    compile 'com.github.ajalt.reprint:reprint_spass:3.2.1@aar' // optional: support for pre-marshmallow Samsung devices
+
 
 }
 
