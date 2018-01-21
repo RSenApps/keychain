@@ -8,7 +8,7 @@ contract Keychain {
   }
 
   struct Keys {
-    mapping(address => bool) keys;
+    mapping(string => bool) keys;
   }
 
   struct Resources {
@@ -25,9 +25,9 @@ contract Keychain {
   Keys key_list;
   Resources resource_list;
 
-  mapping(string => address) user_to_key;
-  mapping(address => string) key_to_user;
-  mapping(address => Resource[]) key_to_resources;
+  mapping(string => string) user_to_key;
+  mapping(string => string) key_to_user;
+  mapping(string => Resource[]) key_to_resources;
   mapping(string => Keys) resource_to_keys;
 
   mapping(string => address) resource_to_owner;
@@ -35,7 +35,7 @@ contract Keychain {
 
   /* Transaction functions */
 
-  function Create_username(string username, address key) public returns(bool) {
+  function Create_username(string username, string key) public returns(bool) {
       if(user_list.users[username] || key_list.keys[key]) {
         return false;
       }
@@ -46,30 +46,26 @@ contract Keychain {
       return true;
   }
 
-  function Create_resource(string resource) public returns(bool) {
+  function Create_resource(string resource) public {
 
-    if(resource_list.resources[resource]) {
-      return false;
-    }
-    resource_to_owner[resource] = msg.sender;
+    require(!resource_list.resources[resource]);
+
+    //resource_to_owner[resource] = msg.sender;
     resource_list.resources[resource] = true;
     /* assignd to empty list automatically...? */
+  }
+
+  function Give_access_to_public_key(string resource, string pub_key) public returns(bool){
+
+    if(resource_list.resources[resource])return false;
+    
+    key_to_resources[pub_key].push(Resource(resource)); /* will cause duplicates */
+    resource_to_keys[resource].keys[pub_key] = true;
     return true;
   }
 
-  function Give_access_to_public_key(string resource, address pub_key) public returns(bool){
-
-    require(msg.sender == resource_to_owner[resource]);
-    if(resource_list.resources[resource]) {
-      key_to_resources[pub_key].push(Resource(resource)); /* will cause duplicates */
-      resource_to_keys[resource].keys[pub_key] = true;
-      return true;
-    }
-    return false;
-  }
-
-  function Share_access(string resource, address my_pub_key, address their_pub_key) public returns(bool){
-    require(resource_to_keys[resource].keys[msg.sender]);
+  function Share_access(string resource, string my_pub_key, string their_pub_key) public returns(bool){
+    //require(resource_to_keys[resource].keys[msg.sender]);
     if(resource_list.resources[resource] && key_list.keys[my_pub_key] && key_list.keys[their_pub_key]) {
       if(resource_to_keys[resource].keys[my_pub_key]) {
         resource_to_keys[resource].keys[their_pub_key] = true;
@@ -82,11 +78,11 @@ contract Keychain {
 
   /* Read-only functions */
 
-  function Query_access (string resource, address key) external view returns(bool) {
+  function Query_access (string resource, string key) public view returns(bool) {
      return resource_to_keys[resource].keys[key];
   }
 
-  function List_access_for_user(address key) external view returns(Resource[]){
+  function List_access_for_user(string key) public view returns(Resource[]){
     Resource[] storage res = key_to_resources[key];
     return res;
   }
