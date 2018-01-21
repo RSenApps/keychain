@@ -57,16 +57,16 @@ public class Cryptography {
         return keyPairGenerator.genKeyPair();
     }
 
-    public static byte[] encrypt(PrivateKey privateKey, String message) throws Exception {
+    public static byte[] encrypt(PublicKey publicKey, String message) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey);
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
         return cipher.doFinal(message.getBytes());
     }
 
-    public static byte[] decrypt(PublicKey publicKey, byte [] encrypted) throws Exception {
+    public static byte[] decrypt(PrivateKey privateKey, byte [] encrypted) throws Exception {
         Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, publicKey);
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
 
         return cipher.doFinal(encrypted);
     }

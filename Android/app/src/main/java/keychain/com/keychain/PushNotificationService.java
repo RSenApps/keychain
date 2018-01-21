@@ -39,8 +39,9 @@ public class PushNotificationService extends FirebaseMessagingService {
 
 
         PendingIntent pIntent = PendingIntent.getActivity(getApplicationContext(), 0,
-                new Intent(getApplicationContext(), MainActivity.class).putExtra("fromnotification", true)
+                new Intent(getApplicationContext(), MainActivity.class).setAction("actionstring" + System.currentTimeMillis()).putExtra("fromnotification", true)
                         .putExtra("challenge", challenge).putExtra("callback_url", callback_url).putExtra("resource",  resource), 0);
+
 
 
 // build notification
