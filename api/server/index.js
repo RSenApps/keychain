@@ -10,6 +10,7 @@ var leveldown = require('leveldown')
 
 var admin = require("firebase-admin");
 var crypto = require("crypto");
+var NodeRSA = require('node-rsa');
 
 // 1) Create our store
 var keysToUID = levelup(leveldown('./keysToUID'))
@@ -117,8 +118,9 @@ app.post('/query_access', function(req, res) {
 
 var encryptStringWithRsaPublicKey = function(toEncrypt,publicKey) {
     var buffer = new Buffer(toEncrypt);
-    var encrypted = crypto.publicEncrypt(publicKey, buffer);
-    return encrypted.toString("base64");
+    var key = new NodeRSA('-----BEGIN RSA PUBLIC KEY-----\n'+ publicKey.trim() + '\n' +
+                      '-----END RSA PUBLIC KEY-----');
+    return key.encrypt(buffer, 'string', 'base64');
 };
 
 var uidToReturn = "";
@@ -128,7 +130,7 @@ app.post('/query_access_and_return_result', function(req, res) {
   
    var payload = {
       data: {
-        challenge: encryptStringWithRsaPublicKey('KeyChain', req.body.public_key),
+        challenge: 'KeyChain',// encryptStringWithRsaPublicKey('KeyChain', req.body.public_key),
         callback_url: 'http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/challenge_response',
         resource: req.body.resource
       }
@@ -166,6 +168,7 @@ app.post('/challenge_response', function(req, res) {
     var payload = {
   notification: {
     title: "Requested user is authenticated",
+    body: "Authenticated"
   }
 };
    admin.messaging().sendToDevice(uidToReturn, payload)
