@@ -23,6 +23,7 @@ var tx = require('ethereumjs-tx');
 var lightwallet = require('eth-lightwallet');
 var txutils = lightwallet.txutils;
 
+
 web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
 
 address = "0xD1E90a9E4Cd458CfFe191FCa01fF641832a9C0dB";
@@ -52,7 +53,7 @@ app.use(session({ secret: 'ilovescotchscotchyscotchscotch' })); // session secre
 app.use(passport.initialize());
 app.use(passport.session()); // persistent login sessions
 app.use(flash()); // use connect-flash for flash messages stored in session
-
+app.use(express.static(__dirname + '/public'));
 // routes ======================================================================
 require('./app/routes.js')(app, passport); // load our routes and pass in our app and fully configured passport
 
