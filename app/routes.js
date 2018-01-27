@@ -86,7 +86,8 @@ function isLoggedIn(req, res, next) {
 
             if(result) {
                 
-                var options = { method: 'POST',
+                var options = { 
+                  method: 'POST',
                   url: 'http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/query_access',
                   headers: 
                      {'Cache-Control': 'no-cache',

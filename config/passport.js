@@ -167,40 +167,67 @@ module.exports = function(passport) {
         //
         console.log('trying to log in');
 
-        User.findOne({ 'local.email' :  email }, function(err, user) {
-           // if there are any errors, return the error before anything else
-           if (err )
-               return done(err);
+        // QUERY FROM BLOCKCHAIN
+        console.log('i am here');
+        var contract = web3.eth.contract(interface);
+        var instance = contract.at(contractAddress);
+        instance.Query_access_username.call("bank", email, callback=function(err, result) {
+            if(err) 
+                return done(err);
 
-           // if no user is found, return the message
-           if (!user)
-               return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
+            console.log('Other Query result:');
+            console.log(result);
 
-           // if the user is found but the password is wrong
-//           if (!user.validPassword(password))
-//               return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
+            if(result) {
+                User.findOne({ 'local.email' :  email }, function(err, user) {
+                   console.log("finding user");
+                   if(err) 
+                        return done(err);
+                    if(!user)
+                        return done(null, false, req.flash('loginMessage', 'No user found.'));
+                   return done(null, user);
+                });
+            } else {
+                return done(null, false, req.flash('loginMessage', 'No user found.    '));            }
+
+        });
+
+
+
+        //User.findOne({ 'local.email' :  email }, function(err, user) {
+        //   // if there are any errors, return the error before anything else
+        //   if (err )
+        //       return done(err);
+
+        //   // if no user is found, return the message
+        //   if (!user)
+        //       return done(null, false, req.flash('loginMessage', 'No user found.')); // req.flash is the way to set flashdata using connect-flash
+
+        //   // if the user is found but the password is wrong
+//      //     if (!user.validPassword(password))
+//      //         return done(null, false, req.flash('loginMessage', 'Oops! Wrong password.')); // create the loginMessage and save it to session as flashdata
 //
 //
-             // QUERY FROM BLOCKCHAIN
-            console.log('i am here');
-            var contract = web3.eth.contract(interface);
-            var instance = contract.at(contractAddress);
-            instance.Query_access_username.call("bank", email, callback=function(err, result) {
-                if(err) {
-                    console.log(err);
-                } else {
-                    console.log('Other Query result:');
-                    console.log(result);
+        //     // QUERY FROM BLOCKCHAIN
+        //    console.log('i am here');
+        //    var contract = web3.eth.contract(interface);
+        //    var instance = contract.at(contractAddress);
+        //    instance.Query_access_username.call("bank", email, callback=function(err, result) {
+        //        if(err) {
+        //            console.log(err);
+        //        } else {
+        //            console.log('Other Query result:');
+        //            console.log(result);
 
-                    User.findOne({ 'local.email' :  email }, function(err, user) {
-                        return done(null, user);
-                    });
-                }
-            });
+        //            User.findOne({ 'local.email' :  email }, function(err, user) {
+        //                return done(null, user);
+        //            });
+        //        }
+        //    });
 
 
-           return done(null, user);
-       });
+        //   return done(null, user);
+        //});
 
     }));
 
