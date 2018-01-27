@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         if (getIntent().getBooleanExtra("fromnotification", false))
         {
+            getIntent().removeExtra("fromnotification");
             final String challenge = getIntent().getStringExtra("challenge");
             final String callback_url = getIntent().getStringExtra("callback_url");
             final String resource = getIntent().getStringExtra("resource");
@@ -124,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             protected Map<String, String> getParams() throws AuthFailureError {
                                 Map<String,String> params = new HashMap<String, String>();
-                                params.put("response", response);
+                                params.put("result", response);
                                 return params;
                             }
                         };
@@ -150,11 +151,36 @@ public class MainActivity extends AppCompatActivity {
             Parcelable[] rawMsgs = getIntent().getParcelableArrayExtra(
                     NfcAdapter.EXTRA_NDEF_MESSAGES);
             // only one message sent during the beam
-            NdefMessage msg = (NdefMessage) rawMsgs[0];
+            final NdefMessage msg = (NdefMessage) rawMsgs[0];
             // record 0 contains the MIME type, record 1 is the AAR, if present
             Toast.makeText(this, new String(msg.getRecords()[0].getPayload()), Toast.LENGTH_LONG).show();
 
             //TODO: Send message to API asking to authenticate and challenge user, once it has completed send me a push back with list of services that has access to
+            StringRequest stringRequest = new StringRequest(Request.Method.POST, "http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/query_access_and_return_result/",
+                    new Response.Listener<String>() {
+                        @Override
+                        public void onResponse(String response) {
+                            Toast.makeText(MainActivity.this, "Sent challenge to user", Toast.LENGTH_LONG).show();
+                        }
+                    }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    Toast.makeText(MainActivity.this, "Request to Server failed. Please try again.", Toast.LENGTH_LONG).show();
+                }
+            }
+            ){
+                @Override
+                protected Map<String, String> getParams() throws AuthFailureError {
+                    Map<String,String> params = new HashMap<String, String>();
+                    params.put("public_key", new String(msg.getRecords()[0].getPayload()));
+                    params.put("resource", "NFC Device Verification");
+                    params.put("return_key", getSharedPreferences("prefs", MODE_PRIVATE).getString("firebase_token", ""));
+
+                    return params;
+                }
+            };
+            RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+            queue.add(stringRequest);
         }
 
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
