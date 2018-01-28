@@ -11,7 +11,7 @@
         android:layout_height="wrap_content" />
 
     <android.support.design.widget.FloatingActionButton
-        android:id="@+id/show_public"
+        android:id="@+id/scan"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -19,6 +19,7 @@
         android:layout_marginBottom="16dp"
         android:layout_marginRight="16dp"
         android:clickable="true"
-        android:src="@drawable/ic_action_key"
+        android:src="@drawable/ic_camera_alt"
         app:elevation="4dp" />
+
 </RelativeLayout>

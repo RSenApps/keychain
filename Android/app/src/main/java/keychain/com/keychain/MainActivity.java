@@ -1,6 +1,7 @@
 package keychain.com.keychain;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -14,6 +15,7 @@ import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.security.keystore.UserNotAuthenticatedException;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Base64;
@@ -43,9 +45,16 @@ import com.github.ajalt.reprint.core.Reprint;
 
 import net.glxn.qrgen.android.QRCode;
 
+import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.KeyFactory;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.SignatureException;
+import java.security.UnrecoverableEntryException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.HashMap;
@@ -60,6 +69,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        //showSignedMessage("test");
+
+        /*
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
         if (mNfcAdapter == null) {
             Toast.makeText(this, "NFC is not available", Toast.LENGTH_LONG).show();
@@ -68,19 +80,56 @@ public class MainActivity extends AppCompatActivity {
         NdefMessage msg = new NdefMessage(
                 new NdefRecord[] { createMime(
                         "application/vnd.com.keychain.auth.request", getSharedPreferences("prefs", MODE_PRIVATE).getString("public_key", "").getBytes()), NdefRecord.createApplicationRecord("keychain.com.keychain")});
-        mNfcAdapter.setNdefPushMessage(msg, this);
+        mNfcAdapter.setNdefPushMessage(msg, this);*/
     }
 
+    private void showSignedMessage(String message) {
+        try {
+            String output = Cryptography.sign(message);
+            Toast.makeText(this, output, Toast.LENGTH_LONG).show();
+        } catch (UserNotAuthenticatedException e) {
+            Intent in = ((KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE)).createConfirmDeviceCredentialIntent(
+                    "KeyChain", "Please log in to confirm access to your account.");
+            startActivityForResult(in, 1);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            // The user authenticated successfully, so let's try to en-/decrypt again.
+            if (requestCode == 1) {
+                showSignedMessage("test");
+            }
+        } else {
+            // The user canceled or didn’t complete the lock screen
+            // operation. Go to error/cancellation flow.
+        }
+
+    }
 
     @Override
     protected void onPause() {
         super.onPause();
-        Reprint.cancelAuthentication();
+        //Reprint.cancelAuthentication();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        KeyguardManager keyguardManager =
+                (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        if (!keyguardManager.isKeyguardSecure()) {
+            Toast.makeText(this,
+                    "Lock screen security not enabled in Settings",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        /*
         if (getIntent().getBooleanExtra("fromnotification", false))
         {
             getIntent().removeExtra("fromnotification");
@@ -105,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
                     dialog.dismiss();
                     try {
                         PrivateKey key = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(Cryptography.base64DecodeKey(prefs.getString("private_key", ""))));
-                        final String response = new String(Cryptography.decrypt(key, Cryptography.base64DecodeKey(challenge)));
+                        final String response = "";//new String(Cryptography.decrypt(key, Cryptography.base64DecodeKey(challenge)));
                         Toast.makeText(MainActivity.this, "Decrypted:" + response, Toast.LENGTH_LONG).show();
 
                         // Request a string response from the provided URL.
@@ -182,14 +231,14 @@ public class MainActivity extends AppCompatActivity {
             RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
             queue.add(stringRequest);
         }
-
+        */
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        if(prefs.getString("username", null) == null) {
+        if(prefs.getLong("keychain-id", -1) == -1) {
             Intent i = new Intent(this, RegisterActivity.class);
             startActivity(i);
             finish();
         }
-        getSupportActionBar().setTitle(prefs.getString("username", "KeyChain"));
+        getSupportActionBar().setTitle(Long.toHexString(prefs.getLong("keychain-id", 0)));
 
         ListView listView = (ListView) findViewById(R.id.listview_with_fab);
 
@@ -199,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, android.R.id.text1, listItwms);
         listView.setAdapter(adapter);
-
+        /*
         findViewById(R.id.show_public).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -231,6 +280,14 @@ public class MainActivity extends AppCompatActivity {
                 alertadd.show();
             }
         });
+        */
+
+        findViewById(R.id.scan).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, QRScannerActivity.class));
+            }
+        });
 
     }
 
@@ -254,16 +311,14 @@ public class MainActivity extends AppCompatActivity {
         final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         switch (item.getItemId()) {
             case R.id.action_logout:
-                prefs.edit().putString("username", null)
-                        .putString("private_key", null)
-                        .putString("public_key", null)
+                prefs.edit().putLong("keychain-id", -1)
                         .apply();
                 Intent i = new Intent(MainActivity.this, RegisterActivity.class);
                 startActivity(i);
                 finish();
                 return true;
             case R.id.action_export:
-
+                /*
                 final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(MainActivity.this);
                 LayoutInflater factory = LayoutInflater.from(MainActivity.this);
                 final View view = factory.inflate(R.layout.dialog_fingerprint, null);
@@ -278,12 +333,23 @@ public class MainActivity extends AppCompatActivity {
                 Reprint.authenticate(new AuthenticationListener() {
                     public void onSuccess(int moduleTag) {
                         dialog.dismiss();
+                        */
                         AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
                         alertDialog.setTitle("Export Keys");
                         TextView showText = new TextView(MainActivity.this);
                         showText.setPadding(30, 30, 30, 0);
-                        showText.setText("Public Key: " + prefs.getString("public_key", "") + "\nPrivate Key: " + prefs.getString("private_key", "")
-                                + "\n\nKeyChain keys are not the same as Ethereum keys, do not send Ethereum to this address. This private key gives access to all of your resources, please be careful.");
+
+                        try {
+                            showText.setText("Public Key: " + Cryptography.base64EncodeKey(Cryptography.getPublickey().getEncoded()));
+                        } catch (CertificateException e) {
+                            e.printStackTrace();
+                        } catch (NoSuchAlgorithmException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        } catch (KeyStoreException e) {
+                            e.printStackTrace();
+                        }
                         showText.setTextIsSelectable(true);
                         alertDialog.setView(showText);
                         alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Private Key",
@@ -309,7 +375,7 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                 });
                         alertDialog.show();
-                    }
+                    /*}
 
                     public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
                                           CharSequence errorMessage, int moduleTag, int errorCode) {
@@ -319,7 +385,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-                dialog.show();
+                dialog.show();*/
 
 
 

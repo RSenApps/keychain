@@ -27,6 +27,7 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 
 public class RegisterActivity extends Activity {
@@ -35,13 +36,20 @@ public class RegisterActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+        final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        final Random r = new Random();
         try {
-            final KeyPair pair = Cryptography.buildKeyPair();
-            final SharedPreferences sharedPref = getSharedPreferences("prefs", Context.MODE_PRIVATE);
-            sharedPref.edit().putString("public_key", Cryptography.base64EncodeKey(pair.getPublic().getEncoded()))
-                    .putString("private_key", Cryptography.base64EncodeKey(pair.getPrivate().getEncoded()))
-                    .apply();
+            Cryptography.buildKeyPair();
+            findViewById(R.id.create_account).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    prefs.edit().putLong("keychain-id", r.nextLong()).apply();
+                    //TODO: create request to server
+                    startActivity(new Intent(RegisterActivity.this, MainActivity.class));
 
+                }
+            });
+            /*
             findViewById(R.id.register).setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -50,7 +58,7 @@ public class RegisterActivity extends Activity {
                     }
                     else {
                         RequestQueue queue = Volley.newRequestQueue(RegisterActivity.this);
-                        String url = "http://ec2-54-224-142-62.compute-1.amazonaws.com:3000/register_username/"; //FILL API register
+                        String url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:3000/register_username/"; //FILL API register
 
                         final ProgressDialog progress = new ProgressDialog(RegisterActivity.this);
                         progress.setMessage("Creating Account");
@@ -79,8 +87,8 @@ public class RegisterActivity extends Activity {
                                 Map<String,String> params = new HashMap<String, String>();
                                 try {
                                     params.put("username", ((EditText) findViewById(R.id.username)).getText().toString());
-                                    params.put("public_key", sharedPref.getString("public_key", null));
-                                    Log.d("IMFEFE", sharedPref.getString("public_key", null));
+                                    params.put("public_key", "test");// sharedPref.getString("public_key", null));
+                                   //Log.d("IMFEFE", sharedPref.getString("public_key", null));
                                     if (sharedPref.getString("firebase_token", null) != null) {
                                         params.put("uid", sharedPref.getString("firebase_token", null));
                                     }
@@ -96,7 +104,8 @@ public class RegisterActivity extends Activity {
 
                 }
             });
-        } catch (NoSuchAlgorithmException e) {
+            */
+        } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(RegisterActivity.this, "No such algorithm", Toast.LENGTH_SHORT).show();
         }
