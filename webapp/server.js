@@ -1,0 +1,286 @@
+// =================================================================
+// get the packages we need ========================================
+// =================================================================
+var express 	= require('express');
+var app         = express();
+var bodyParser  = require('body-parser');
+var morgan      = require('morgan');
+var mongoose    = require('mongoose');
+var randomstring = require("randomstring");
+var qr = require('qr-image');
+var util = require('ethereumjs-util');
+var tx = require('ethereumjs-tx');
+var lightwallet = require('eth-lightwallet');
+var txutils = lightwallet.txutils;
+var request = require("request");
+var QRCode = require('qrcode')
+var Web3 = require('web3');
+
+
+var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
+var config = require('./config'); // get our config file
+var User   = require('./app/models/user'); // get our mongoose model
+
+// =================================================================
+// configuration ===================================================
+// =================================================================
+var port = process.env.PORT || 8080; // used to create, sign, and verify tokens
+web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
+mongoose.connect(config.database); // connect to database
+app.set('superSecret', config.secret); // secret variable
+app.set('view engine', 'ejs'); // set up ejs for templating
+
+// use body parser so we can get info from POST and/or URL parameters
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+// use morgan to log requests to the console
+app.use(morgan('dev'));
+
+
+// =================================================================
+// routes ==========================================================
+// =================================================================
+//app.get('/setup', function(req, res) {
+//
+//	// create a sample user
+//	var nick = new User({ 
+//		name: 'Nick Cerminara', 
+//		password: 'password',
+//		admin: true 
+//	});
+//	nick.save(function(err) {
+//		if (err) throw err;
+//
+//		console.log('User saved successfully');
+//		res.json({ success: true });
+//	});
+//});
+
+// basic route (http://localhost:8080)
+app.get('/', function(req, res) {
+    res.render('index.ejs');
+	//res.send('Hello! The API is at http://localhost:' + port + '/api');
+});
+
+app.get('/authenticate', function(req, res) {
+    var code = randomstring.generate(256);
+    var input = "keychain," + code + ",callback";
+    res.render('authenticate.ejs', { data:input});
+
+    var listener = function(res) {
+      messageBus.once(code, function(data) {
+        res.send('Received')
+      })
+    }
+    listener(res)
+});
+
+app.get('/qr/:text', function(req,res){
+    var code = qr.image(req.params.text, { type: 'png', ec_level: 'H', size:5, margin: 0 });
+     res.setHeader('Content-type', 'image/png');
+     code.pipe(res);
+});
+
+
+//change to be some callback URL from android!!!!
+//app.post('/callback', function(req, res) {
+//    // create a sample user
+//	var user = new User({ 
+//		id: req.body.id, 
+//	});
+//	user.save(function(err) {
+//		if (err) throw err;
+//
+//		console.log('User saved successfully');
+//		res.json({ success: true });
+//	});
+//});
+
+// ---------------------------------------------------------
+// get an instance of the router for api routes
+// ---------------------------------------------------------
+var apiRoutes = express.Router(); 
+
+
+
+function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function sendRaw(rawTx) {
+    var privateKey = new Buffer(key, 'hex');
+    var transaction = new tx(rawTx);
+    transaction.sign(privateKey);
+    var serializedTx = transaction.serialize().toString('hex');
+    web3.eth.sendRawTransaction(
+    '0x' + serializedTx, async function(err, result) {
+        if(err) {
+            console.log(err);
+        } else {
+            //console.log('Success! result below');
+            console.log(result);
+            var x = null;
+            console.log("Waiting for transaction reciept...");
+            while(x == null) {
+                x = web3.eth.getTransactionReceipt(result);
+                console.log('waiting');
+                await sleep(10000);
+            }
+            console.log("Transaction confirmed!");
+            console.log(x)
+        }
+    });
+}
+
+
+
+function verifyUser(id, key, instance) {
+    instance.Query_access_username.call(id, key, callback=function(err, result) {
+        if(err) {
+            console.log(err);
+            return false;
+        } 
+        return result;
+    });
+}
+
+function addUser(key, instance) {
+    var id; //GENERATE KEYCHAIN ID??
+
+    var user = new User({ 
+        id: req.body.id, 
+    });
+
+    //submit user to the blockchain - keychain_id -> pubkey 
+    var txOptions = {
+        nonce: web3.toHex(web3.eth.getTransactionCount(address, 'pending')),
+        gasLimit: web3.toHex(800000),
+        gasPrice: web3.toHex(40000000000),
+        to: contractAddress
+    }
+    var rawTx = txutils.functionTx(interface, 'Give_access_to_public_key', [id, key], txOptions);
+    sendRaw(rawTx);
+
+    user.save(function(err) {
+        if (err) throw err;
+        console.log('User saved successfully');
+        res.json({ success: true });
+    });
+}
+
+
+
+// ---------------------------------------------------------
+// authentication (no middleware necessary since this isnt authenticated)
+// ---------------------------------------------------------
+// http://localhost:8080/api/authenticate
+// Request username, query blockchain, and send/recieve push here
+apiRoutes.post('/callback', function(req, res) {
+
+    var isValid = secp256k1.verify(new Buffer(req.body.nonce, 'base64'), new Buffer(req.body.signature, 'base64'), new Buffer(req.body.public_key, 'base64'));
+    if(!isValid) }
+        return res.status(403).send({ 
+			success: false, 
+			message: 'Authentication invalid.'
+		});
+    }
+    console.log(req.body.public_key.toString("hex"));
+	
+    var contract = web3.eth.contract(interface);
+    var instance = contract.at(contractAddress);
+	// find the user
+	User.findOne({
+		id: req.body.id
+	}, function(err, user) {
+
+		if (err) throw err;
+
+		if (!user) { //make new user is user not found
+            addUser(req.body.key, instance);
+            //res.json({ success: false, message: 'Authentication failed. User not found.' });
+		} else if (user) {
+
+            //query if keychain_id -> pubkey on blockchain
+            var ok = verifyUser(req.body.id, req.body.key, instance);
+
+			// check if password matches
+			if (!ok) {
+				res.json({ success: false, message: 'Authentication failed.' });
+			} else {
+                messageBus.emit(req.body.message, 'MESSAGE');
+                res.send(isValid).end();
+				// create a token
+				var token = jwt.sign(app.get('superSecret'), {
+					expiresIn: 86400 // expires in 24 hours
+				});
+
+				res.json({
+					success: true,
+					message: 'Enjoy your token!',
+					token: token
+				});
+			}		
+		}
+	});
+});
+
+// ---------------------------------------------------------
+// route middleware to authenticate and check token
+// ---------------------------------------------------------
+apiRoutes.use(function(req, res, next) {
+
+	// check header or url parameters or post parameters for token
+	var token = req.body.token || req.param('token') || req.headers['x-access-token'];
+
+	// decode token
+	if (token) {
+
+		// verifies secret and checks exp
+		jwt.verify(token, app.get('superSecret'), function(err, decoded) {			
+			if (err) {
+				return res.json({ success: false, message: 'Failed to authenticate token.' });		
+			} else {
+				// if everything is good, save to request for use in other routes
+				req.decoded = decoded;	
+				next();
+			}
+		});
+
+	} else {
+
+		// if there is no token
+		// return an error
+		return res.status(403).send({ 
+			success: false, 
+			message: 'No token provided.'
+		});
+		
+	}
+	
+});
+
+// ---------------------------------------------------------
+// authenticated routes
+// ---------------------------------------------------------
+apiRoutes.get('/', function(req, res) {
+	res.json({ message: 'Welcome to the coolest API on earth!' });
+});
+
+apiRoutes.get('/users', function(req, res) {
+	User.find({}, function(err, users) {
+		res.json(users);
+	});
+});
+
+apiRoutes.get('/check', function(req, res) {
+	res.json(req.decoded);
+});
+
+app.use('/api', apiRoutes);
+
+// =================================================================
+// start the server ================================================
+// =================================================================
+app.listen(port);
+console.log('Magic happens at http://localhost:' + port);

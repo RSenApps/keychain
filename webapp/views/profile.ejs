@@ -1,0 +1,38 @@
+<!-- views/qrcode.ejs -->
+<!doctype html>
+<html>
+<head>
+    <title>Keychain</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">
+    <style>
+        body        { padding-top:80px; word-wrap:break-word; }
+    </style>
+</head>
+<div class="container">
+
+    <div class="page-header text-center">
+        <h1></span>QR Code</h1>
+        <a href="/logout" class="btn btn-default btn-sm">Logout</a>
+    </div>
+
+    <div class="row">
+
+        <!-- LOCAL INFORMATION -->
+        <div class="col-sm-6">
+            <div class="well">
+                <h3><span class="fa fa-user"></span> Information </h3>
+
+                    <p>
+                        <strong>Account ID</strong>: <%= user._id %><br>
+                        <strong>Money</strong>:  $1069.88<br>
+                    </p>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</body>
+</html>
