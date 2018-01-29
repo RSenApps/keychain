@@ -16,6 +16,14 @@ var request = require("request");
 var QRCode = require('qrcode')
 var Web3 = require('web3');
 
+const secp256k1 = require('secp256k1');
+
+const { randomBytes } = require('crypto');
+var EC = require('elliptic').ec;
+var ec = new EC('p256');
+var EventEmitter = require('events').EventEmitter;
+var messageBus = new EventEmitter()
+messageBus.setMaxListeners(100)
 
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var config = require('./config'); // get our config file
@@ -29,6 +37,7 @@ web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
 mongoose.connect(config.database); // connect to database
 app.set('superSecret', config.secret); // secret variable
 app.set('view engine', 'ejs'); // set up ejs for templating
+
 
 // use body parser so we can get info from POST and/or URL parameters
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -63,17 +72,30 @@ app.get('/', function(req, res) {
 	//res.send('Hello! The API is at http://localhost:' + port + '/api');
 });
 
+
 app.get('/authenticate', function(req, res) {
-    var code = randomstring.generate(256);
-    var input = "keychain," + code + ",callback";
+    var randomNonce = randomBytes(32).toString('hex');
+    var input = "keychain," + randomNonce + ",callback";
     res.render('authenticate.ejs', { data:input});
 
     var listener = function(res) {
-      messageBus.once(code, function(data) {
-        res.send('Received')
+        messageBus.once(randomNonce, function(data) {
+		    // create a token
+		    var token = jwt.sign(app.get('superSecret'), {
+		    	expiresIn: 86400 // expires in 24 hours
+		    });
+
+		    res.json({ // do they get this token?
+		    	success: true,
+		    	message: 'Enjoy your token!',
+		    	token: token
+		    });
+
+            //res.send('Received')
+            res.redirect('/');
       })
     }
-    listener(res)
+    listener(res);
 });
 
 app.get('/qr/:text', function(req,res){
@@ -96,19 +118,11 @@ app.get('/qr/:text', function(req,res){
 //		res.json({ success: true });
 //	});
 //});
-
-// ---------------------------------------------------------
-// get an instance of the router for api routes
-// ---------------------------------------------------------
-var apiRoutes = express.Router(); 
-
-
-
 function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function sendRaw(rawTx) {
+function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is still needed?
     var privateKey = new Buffer(key, 'hex');
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
@@ -134,7 +148,7 @@ function sendRaw(rawTx) {
 }
 
 
-
+//Verify that returned key/id are valid in blockchain 
 function verifyUser(id, key, instance) {
     instance.Query_access_username.call(id, key, callback=function(err, result) {
         if(err) {
@@ -145,6 +159,7 @@ function verifyUser(id, key, instance) {
     });
 }
 
+//Create new user and submit blockchain transaction for new key_id and pubkey
 function addUser(key, instance) {
     var id; //GENERATE KEYCHAIN ID??
 
@@ -169,24 +184,12 @@ function addUser(key, instance) {
     });
 }
 
+app.post('/test_auth', function(req, res) {
+    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
 
+    //check blockchain here
 
-// ---------------------------------------------------------
-// authentication (no middleware necessary since this isnt authenticated)
-// ---------------------------------------------------------
-// http://localhost:8080/api/authenticate
-// Request username, query blockchain, and send/recieve push here
-apiRoutes.post('/callback', function(req, res) {
-
-    var isValid = secp256k1.verify(new Buffer(req.body.nonce, 'base64'), new Buffer(req.body.signature, 'base64'), new Buffer(req.body.public_key, 'base64'));
-    if(!isValid) }
-        return res.status(403).send({ 
-			success: false, 
-			message: 'Authentication invalid.'
-		});
-    }
-    console.log(req.body.public_key.toString("hex"));
-	
     var contract = web3.eth.contract(interface);
     var instance = contract.at(contractAddress);
 	// find the user
@@ -197,33 +200,75 @@ apiRoutes.post('/callback', function(req, res) {
 		if (err) throw err;
 
 		if (!user) { //make new user is user not found
-            addUser(req.body.key, instance);
+            addUser(req.params.keychain_id, instance);
             //res.json({ success: false, message: 'Authentication failed. User not found.' });
 		} else if (user) {
 
             //query if keychain_id -> pubkey on blockchain
-            var ok = verifyUser(req.body.id, req.body.key, instance);
+            var ok = verifyUser(req.params.keychain_id, req.params.public_keyx, instance);
 
 			// check if password matches
 			if (!ok) {
-				res.json({ success: false, message: 'Authentication failed.' });
-			} else {
-                messageBus.emit(req.body.message, 'MESSAGE');
-                res.send(isValid).end();
-				// create a token
-				var token = jwt.sign(app.get('superSecret'), {
-					expiresIn: 86400 // expires in 24 hours
-				});
-
-				res.json({
-					success: true,
-					message: 'Enjoy your token!',
-					token: token
-				});
-			}		
+                isValid = false;
+			} 
 		}
 	});
-});
+
+    if (isValid) {
+          messageBus.emit(req.body.nonce, req.body.keychain_id)
+    }
+    res.send(isValid).end()
+})
+
+// ---------------------------------------------------------
+// authentication (no middleware necessary since this isnt authenticated)
+// ---------------------------------------------------------
+// http://localhost:8080/api/authenticate
+// Request username, query blockchain, and send/recieve push here
+//app.post('/callback/:nonce/:public_keyx/:public_keyy/:signature/:keychain_id', function(req, res) {
+//    console.log(req.params);
+//    var isValid = secp256k1.verify(new Buffer(req.params.nonce, 'base64'), new Buffer(req.params.signature, 'base64'), new Buffer(req.params.public_key, 'base64'));
+//    if(!isValid) {
+//        return res.status(403).send({ 
+//			success: false, 
+//			message: 'Authentication invalid.'
+//		});
+//    }
+//    console.log(req.body.public_key.toString("hex"));
+//	
+//    var contract = web3.eth.contract(interface);
+//    var instance = contract.at(contractAddress);
+//	// find the user
+//	User.findOne({
+//		id: req.body.id
+//	}, function(err, user) {
+//
+//		if (err) throw err;
+//
+//		if (!user) { //make new user is user not found
+//            addUser(req.params.keychain_id, instance);
+//            //res.json({ success: false, message: 'Authentication failed. User not found.' });
+//		} else if (user) {
+//
+//            //query if keychain_id -> pubkey on blockchain
+//            var ok = verifyUser(req.params.keychain_id, req.params.public_keyx, instance);
+//
+//			// check if password matches
+//			if (!ok) {
+//				return res.json({ success: false, message: 'Authentication failed.' });
+//			} else {
+//                messageBus.emit(req.params.nonce, 'MESSAGE');
+//                res.send(isValid).end();
+//    		}		
+//		}
+//	});
+//});
+//
+
+// ---------------------------------------------------------
+// get an instance of the router for api routes
+// ---------------------------------------------------------
+var apiRoutes = express.Router(); 
 
 // ---------------------------------------------------------
 // route middleware to authenticate and check token
@@ -264,7 +309,7 @@ apiRoutes.use(function(req, res, next) {
 // authenticated routes
 // ---------------------------------------------------------
 apiRoutes.get('/', function(req, res) {
-	res.json({ message: 'Welcome to the coolest API on earth!' });
+    res.render('profile.ejs');
 });
 
 apiRoutes.get('/users', function(req, res) {
