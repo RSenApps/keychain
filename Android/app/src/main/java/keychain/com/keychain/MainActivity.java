@@ -84,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showSignedMessage(String message) {
-        try {
+        /*try {
             String output = Cryptography.sign(message);
             Toast.makeText(this, output, Toast.LENGTH_LONG).show();
         } catch (UserNotAuthenticatedException e) {
@@ -93,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(in, 1);
         } catch (Exception e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
     @Override
@@ -340,7 +340,7 @@ public class MainActivity extends AppCompatActivity {
                         showText.setPadding(30, 30, 30, 0);
 
                         try {
-                            showText.setText("Public Key: " + Cryptography.base64EncodeKey(Cryptography.getPublickey().getEncoded()));
+                            showText.setText("Public Key: " + Cryptography.getPublickey());
                         } catch (CertificateException e) {
                             e.printStackTrace();
                         } catch (NoSuchAlgorithmException e) {
