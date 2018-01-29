@@ -20,7 +20,7 @@ const secp256k1 = require('secp256k1');
 
 const { randomBytes } = require('crypto');
 var EC = require('elliptic').ec;
-var ec = new EC('p256');
+//var ec = new EC('p256');
 var EventEmitter = require('events').EventEmitter;
 var messageBus = new EventEmitter()
 messageBus.setMaxListeners(100)
@@ -35,9 +35,7 @@ var User   = require('./app/models/user'); // get our mongoose model
 var port = process.env.PORT || 8080; // used to create, sign, and verify tokens
 web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
 mongoose.connect(config.database); // connect to database
-app.set('superSecret', config.secret); // secret variable
-app.set('view engine', 'ejs'); // set up ejs for templating
-
+app.set('secret', config.secret); // secret variable
 
 // use body parser so we can get info from POST and/or URL parameters
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -81,7 +79,7 @@ app.get('/authenticate', function(req, res) {
     var listener = function(res) {
         messageBus.once(randomNonce, function(data) {
 		    // create a token
-		    var token = jwt.sign(app.get('superSecret'), {
+		    var token = jwt.sign(app.get('secret'), {
 		    	expiresIn: 86400 // expires in 24 hours
 		    });
 
@@ -123,7 +121,7 @@ function sleep(ms) {
 }
 
 function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is still needed?
-    var privateKey = new Buffer(key, 'hex');
+    var privateKey = new Buffer(config.key, 'hex');
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
     var serializedTx = transaction.serialize().toString('hex');
@@ -160,53 +158,63 @@ function verifyUser(id, key, instance) {
 }
 
 //Create new user and submit blockchain transaction for new key_id and pubkey
-function addUser(key, instance) {
+function addUser(id, key, instance) {
     var id; //GENERATE KEYCHAIN ID??
 
     var user = new User({ 
-        id: req.body.id, 
+        id: id, 
     });
 
     //submit user to the blockchain - keychain_id -> pubkey 
     var txOptions = {
-        nonce: web3.toHex(web3.eth.getTransactionCount(address, 'pending')),
+        nonce: web3.toHex(web3.eth.getTransactionCount(config.address, 'pending')),
         gasLimit: web3.toHex(800000),
         gasPrice: web3.toHex(40000000000),
         to: contractAddress
     }
-    var rawTx = txutils.functionTx(interface, 'Give_access_to_public_key', [id, key], txOptions);
+    var rawTx = txutils.functionTx(config.interface, 'Give_access_to_public_key', [id, key], txOptions);
     sendRaw(rawTx);
 
     user.save(function(err) {
         if (err) throw err;
         console.log('User saved successfully');
-        res.json({ success: true });
     });
 }
 
 app.post('/test_auth', function(req, res) {
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    var key = 0;  //ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    var isValid = true; //key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
 
     //check blockchain here
+    var contract = web3.eth.contract(config.interface);
+    var instance = contract.at(app.get(config.contractAddress));
 
-    var contract = web3.eth.contract(interface);
-    var instance = contract.at(contractAddress);
+    console.log(req.body);
+    // fail if any parameters are null
+    if(req.body.nonce == null || req.body.keychain_id == null || req.body.public_keyx == null || req.body.public_keyy == null) {
+        console.log("here");
+        throw err;
+        isValid = false;
+    }
+
+    var nonce = String(req.body.nonce);
+    var keychain_id = String(req.body.keychain_id)
+    var public_keyx = String(req.body.public_keyx);
+    var public_keyy = String(req.body.public_keyy);
 	// find the user
 	User.findOne({
-		id: req.body.id
+		id: keychain_id
 	}, function(err, user) {
 
 		if (err) throw err;
 
 		if (!user) { //make new user is user not found
-            addUser(req.params.keychain_id, instance);
+            addUser(keychain_id, public_keyx, instance);
             //res.json({ success: false, message: 'Authentication failed. User not found.' });
 		} else if (user) {
 
             //query if keychain_id -> pubkey on blockchain
-            var ok = verifyUser(req.params.keychain_id, req.params.public_keyx, instance);
-
+            var ok = verifyUser(keychain_id, public_keyx, instance);
 			// check if password matches
 			if (!ok) {
                 isValid = false;
