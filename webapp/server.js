@@ -7,6 +7,14 @@ var bodyParser  = require('body-parser');
 var morgan      = require('morgan');
 var mongoose    = require('mongoose');
 var randomstring = require("randomstring");
+
+
+const secp256k1 = require('secp256k1');
+
+const { randomBytes } = require('crypto');
+var EC = require('elliptic').ec;
+var ec = new EC('p256');
+
 var qr = require('qr-image');
 var util = require('ethereumjs-util');
 var tx = require('ethereumjs-tx');
@@ -16,11 +24,6 @@ var request = require("request");
 var QRCode = require('qrcode')
 var Web3 = require('web3');
 
-const secp256k1 = require('secp256k1');
-
-const { randomBytes } = require('crypto');
-var EC = require('elliptic').ec;
-var ec = new EC('p256');
 var EventEmitter = require('events').EventEmitter;
 var messageBus = new EventEmitter()
 messageBus.setMaxListeners(100)
@@ -36,6 +39,11 @@ var port = process.env.PORT || 8080; // used to create, sign, and verify tokens
 web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
 mongoose.connect(config.database); // connect to database
 app.set('secret', config.secret); // secret variable
+app.set('bytecode', config.bytecode);
+app.set('interface', config.interface);
+app.set('contractAddress', config.contractAddress);
+app.set('address', config.address);
+app.set('key', config.key);
 
 // use body parser so we can get info from POST and/or URL parameters
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -121,7 +129,7 @@ function sleep(ms) {
 }
 
 function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is still needed?
-    var privateKey = new Buffer(config.key, 'hex');
+    var privateKey = new Buffer(app.get('contract'), 'hex');
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
     var serializedTx = transaction.serialize().toString('hex');
@@ -166,12 +174,12 @@ function addUser(id, key, instance) {
 
     //submit user to the blockchain - keychain_id -> pubkey 
     var txOptions = {
-        nonce: web3.toHex(web3.eth.getTransactionCount(config.address, 'pending')),
+        nonce: web3.toHex(web3.eth.getTransactionCount(app.get('address'), 'pending')),
         gasLimit: web3.toHex(800000),
         gasPrice: web3.toHex(40000000000),
         to: contractAddress
     }
-    var rawTx = txutils.functionTx(config.interface, 'Give_access_to_public_key', [id, key], txOptions);
+    var rawTx = txutils.functionTx(app.get('interface'), 'Give_access_to_public_key', [id, key], txOptions);
     sendRaw(rawTx);
 
     user.save(function(err) {
@@ -181,20 +189,21 @@ function addUser(id, key, instance) {
 }
 
 app.post('/test_auth', function(req, res) {
-    var key = 0;  //ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = true; //key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
 
     //check blockchain here
-    var contract = web3.eth.contract(config.interface);
-    var instance = contract.at(app.get(config.contractAddress));
+    var contract = web3.eth.contract(app.get('interface'));
+    console.log(app.get('interface'));
+    var instance = contract.at(app.get('contractAddress'));
 
     console.log(req.body);
     // fail if any parameters are null
-    if(req.body.nonce == null || req.body.keychain_id == null || req.body.public_keyx == null || req.body.public_keyy == null) {
-        console.log("here");
-        throw err;
-        isValid = false;
-    }
+    //if(req.body.nonce == null || req.body.keychain_id == null || req.body.public_keyx == null || req.body.public_keyy == null) {
+    //    console.log("here");
+    //    throw err;
+    //    isValid = false;
+    //}
 
     var nonce = String(req.body.nonce);
     var keychain_id = String(req.body.keychain_id)
