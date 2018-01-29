@@ -20,7 +20,7 @@ const secp256k1 = require('secp256k1');
 
 const { randomBytes } = require('crypto');
 var EC = require('elliptic').ec;
-//var ec = new EC('p256');
+var ec = new EC('p256');
 var EventEmitter = require('events').EventEmitter;
 var messageBus = new EventEmitter()
 messageBus.setMaxListeners(100)
@@ -125,8 +125,7 @@ function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is s
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
     var serializedTx = transaction.serialize().toString('hex');
-    web3.eth.sendRawTransaction(
-    '0x' + serializedTx, async function(err, result) {
+    web3.eth.sendRawTransaction('0x' + serializedTx, async function(err, result) {
         if(err) {
             console.log(err);
         } else {
