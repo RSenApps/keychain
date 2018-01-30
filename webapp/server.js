@@ -81,13 +81,16 @@ app.get('/', function(req, res) {
 app.get('/authenticate', function(req, res) {
     var randomNonce = randomBytes(32).toString('hex');
     res.render('authenticate.ejs', { data:randomNonce});
+});
 
-    var listener = function(res) {
-        messageBus.once(randomNonce, function(data) {
+app.get('/poll', function(req, res) {
+  var listener = function(res) {
+	console.log(req);
+        messageBus.once(req.query.message, function(data) {
 		    // create a token
             console.log("EVENT CALLED");
             console.log(app.get('secret'));
-		    var token = jwt.sign(app.get('secret'), {
+		    var token = jwt.sign({keychain_id: req.query.message}, app.get('secret'), {
 		    	expiresIn: 86400 // expires in 24 hours
 		    });
 
@@ -97,8 +100,7 @@ app.get('/authenticate', function(req, res) {
 		    	token: token
 		    });
 
-            //res.send('Received')
-            res.redirect('/');
+                    res.redirect('/');
       })
     }
     listener(res);
@@ -107,7 +109,6 @@ app.get('/authenticate', function(req, res) {
 app.get('/qr/:text', function(req,res){
     var callback_url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/test_auth";
     var input = 'keychain,'+ callback_url + ',' + req.params.text;
-    console.log(input);
     var code = qr.image(input, { type: 'png', ec_level: 'H', size:5, margin: 0});
      res.setHeader('Content-type', 'image/png');
      code.pipe(res);
@@ -132,8 +133,6 @@ function sleep(ms) {
 }
 
 function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is still needed?
-    console.log(app.get('secret'));
-    console.log(app.get('key'));
     var privateKey = new Buffer(app.get('key'), 'hex');
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
@@ -165,6 +164,7 @@ function verifyUser(id, key, instance) {
             console.log(err);
             return false;
         } 
+	console.log(result);
         return result;
     });
 }
@@ -195,14 +195,12 @@ function addUser(id, key, instance) {
 
 app.post('/test_auth', function(req, res) {
     var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = true;//key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
 
     //check blockchain here
     var contract = web3.eth.contract(app.get('interface'));
-    console.log(app.get('interface'));
     var instance = contract.at(app.get('contractAddress'));
 
-    console.log(req.body);
     // fail if any parameters are null
     //if(req.body.nonce == null || req.body.keychain_id == null || req.body.public_keyx == null || req.body.public_keyy == null) {
     //    console.log("here");
@@ -214,6 +212,9 @@ app.post('/test_auth', function(req, res) {
     var keychain_id = String(req.body.keychain_id)
     var public_keyx = String(req.body.public_keyx);
     var public_keyy = String(req.body.public_keyy);
+
+    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    var encoded_key = key.getPublic().encode('hex');
 	// find the user
 	User.findOne({
 		id: keychain_id
@@ -222,23 +223,28 @@ app.post('/test_auth', function(req, res) {
 		if (err) throw err;
 
 		if (!user) { //make new user is user not found
-            addUser(keychain_id, public_keyx, instance);
+                     console.log('adding user');
+                     addUser(keychain_id, encoded_key, instance);
+                     messageBus.emit(req.body.nonce, req.body.keychain_id)
+	             res.send(true).end();
             //res.json({ success: false, message: 'Authentication failed. User not found.' });
 		} else if (user) {
 
             //query if keychain_id -> pubkey on blockchain
-            var ok = verifyUser(keychain_id, public_keyx, instance);
+		
+            var ok = verifyUser(keychain_id, encoded_key, instance);
+	    console.log('verified user?');
+            console.log(ok);
 			// check if password matches
 			if (!ok) {
-                isValid = false;
-			} 
+    			    res.send(false).end()
+			} else {
+          		    messageBus.emit(req.body.nonce, req.body.keychain_id)
+			    res.send(true).end()
+			}
 		}
 	});
 
-    if (isValid) {
-          messageBus.emit(req.body.nonce, req.body.keychain_id)
-    }
-    res.send(isValid).end()
 })
 
 // ---------------------------------------------------------
