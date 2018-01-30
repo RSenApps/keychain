@@ -23,7 +23,7 @@ var txutils = lightwallet.txutils;
 var request = require("request");
 var QRCode = require('qrcode')
 var Web3 = require('web3');
-
+var url = require('url')
 var EventEmitter = require('events').EventEmitter;
 var messageBus = new EventEmitter()
 messageBus.setMaxListeners(100)
@@ -78,15 +78,15 @@ app.get('/', function(req, res) {
 	//res.send('Hello! The API is at http://localhost:' + port + '/api');
 });
 
-
 app.get('/authenticate', function(req, res) {
     var randomNonce = randomBytes(32).toString('hex');
-    var input = "keychain," + randomNonce + ",callback";
-    res.render('authenticate.ejs', { data:input});
+    res.render('authenticate.ejs', { data:randomNonce});
 
     var listener = function(res) {
         messageBus.once(randomNonce, function(data) {
 		    // create a token
+            console.log("EVENT CALLED");
+            console.log(app.get('secret'));
 		    var token = jwt.sign(app.get('secret'), {
 		    	expiresIn: 86400 // expires in 24 hours
 		    });
@@ -105,7 +105,10 @@ app.get('/authenticate', function(req, res) {
 });
 
 app.get('/qr/:text', function(req,res){
-    var code = qr.image(req.params.text, { type: 'png', ec_level: 'H', size:5, margin: 0 });
+    var callback_url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/test_auth";
+    var input = 'keychain,'+ callback_url + ',' + req.params.text;
+    console.log(input);
+    var code = qr.image(input, { type: 'png', ec_level: 'H', size:5, margin: 0});
      res.setHeader('Content-type', 'image/png');
      code.pipe(res);
 });
@@ -129,7 +132,9 @@ function sleep(ms) {
 }
 
 function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is still needed?
-    var privateKey = new Buffer(app.get('contract'), 'hex');
+    console.log(app.get('secret'));
+    console.log(app.get('key'));
+    var privateKey = new Buffer(app.get('key'), 'hex');
     var transaction = new tx(rawTx);
     transaction.sign(privateKey);
     var serializedTx = transaction.serialize().toString('hex');
@@ -155,7 +160,7 @@ function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is s
 
 //Verify that returned key/id are valid in blockchain 
 function verifyUser(id, key, instance) {
-    instance.Query_access_username.call(id, key, callback=function(err, result) {
+    instance.Query_access_key.call(id, key, callback=function(err, result) {
         if(err) {
             console.log(err);
             return false;
@@ -177,7 +182,7 @@ function addUser(id, key, instance) {
         nonce: web3.toHex(web3.eth.getTransactionCount(app.get('address'), 'pending')),
         gasLimit: web3.toHex(800000),
         gasPrice: web3.toHex(40000000000),
-        to: contractAddress
+        to: app.get('contractAddress')
     }
     var rawTx = txutils.functionTx(app.get('interface'), 'Give_access_to_public_key', [id, key], txOptions);
     sendRaw(rawTx);
@@ -190,7 +195,7 @@ function addUser(id, key, instance) {
 
 app.post('/test_auth', function(req, res) {
     var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    var isValid = true;//key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
 
     //check blockchain here
     var contract = web3.eth.contract(app.get('interface'));
