@@ -100,7 +100,7 @@ app.get('/poll', function(req, res) {
 		    	token: token
 		    });
 
-                    res.redirect('/');
+        res.redirect('/');
       })
     }
     listener(res);
