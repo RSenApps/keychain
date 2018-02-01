@@ -195,6 +195,12 @@ app.post('/test_auth', function(req, res) {
     var public_keyy = String(req.body.public_keyy);
 
     var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    if(!isValid) {
+      res.send(false).end();
+      return;
+    }
+    console.log("Valid signature")
     var encoded_key = key.getPublic().encode('hex');
 	// find the user
 	User.findOne({
