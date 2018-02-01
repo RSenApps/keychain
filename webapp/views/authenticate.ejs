@@ -7,9 +7,12 @@
     var longPoll = function(){
           $.ajax({
               method: 'GET',
-              url: 'http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/poll?message=<%= data %>', 
+              headers: {
+                'x-access-token': '<%= token %>'
+              },
+              url: 'http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/poll', 
               success: function(data){
-                  document.write(data)
+                 window.location = data  
               },
               complete: function(){
                   longPoll()
