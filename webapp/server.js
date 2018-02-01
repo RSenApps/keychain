@@ -139,13 +139,14 @@ function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is s
 
 //Verify that returned key/id are valid in blockchain 
 function verifyUser(id, key, instance) {
-    instance.Query_access_key.call(id, key, callback=function(err, result) {
+    instance.User_for_key.call(id, key, callback=function(err, result) {
         if(err) {
             console.log(err);
             return false;
         } 
-	console.log(result);
-        return result;
+	    console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
+        if(result == id) return true;
+        return false;
     });
 }
 
@@ -164,7 +165,7 @@ function addUser(id, key, instance) {
         gasPrice: web3.toHex(40000000000),
         to: app.get('contractAddress')
     }
-    var rawTx = txutils.functionTx(app.get('interface'), 'Give_access_to_public_key', [id, key], txOptions);
+    var rawTx = txutils.functionTx(app.get('interface'), 'Create_username', [id, key], txOptions);
     sendRaw(rawTx);
 
     user.save(function(err) {
