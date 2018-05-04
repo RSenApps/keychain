@@ -27,7 +27,8 @@ dependencies {
     compile 'com.github.ajalt.reprint:core:3.2.1@aar' // required: supports marshmallow devices
     compile 'com.github.ajalt.reprint:reprint_spass:3.2.1@aar' // optional: support for pre-marshmallow Samsung devices
     compile 'me.dm7.barcodescanner:zxing:1.9.8'
-
+    compile 'com.obsez.android.lib.filechooser:filechooser:1.1.6'
+    implementation 'org.web3j:core:3.3.1-android'
 }
 
 

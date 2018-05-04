@@ -9,6 +9,8 @@
         android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="com.samsung.android.providers.context.permission.WRITE_USE_APP_FEATURE_SURVEY"/>
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
 
 
     <application
@@ -21,7 +23,7 @@
         android:theme="@style/AppTheme">
         <activity
             android:name=".RegisterActivity"
-            android:theme="@style/AppThemeNoAction">
+            android:theme="@style/AppThemeCompat.NoActionBar">
         </activity>
 
         <service android:name=".MyFirebaseInstanceIdService">
@@ -37,7 +39,7 @@
 
         <activity
             android:name=".MainActivity"
-            android:theme="@style/AppThemeCompat"
+            android:theme="@style/AppThemeCompatDark"
             android:label="KeyChain">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -49,6 +51,18 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/vnd.com.keychain.auth.request"/>
             </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".WOTActivity"
+            android:theme="@style/AppThemeCompatDark"
+            android:label="Web of Trust">
+        </activity>
+
+        <activity
+            android:name=".WOTRecoverActivity"
+            android:theme="@style/AppThemeCompatDark"
+            android:label="Web of Trust">
         </activity>
 
         <activity android:name=".QRScannerActivity" />

@@ -2,14 +2,21 @@ package keychain.com.keychain;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Environment;
+import android.preference.PreferenceManager;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.AuthFailureError;
@@ -19,95 +26,100 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.obsez.android.lib.filechooser.ChooserDialog;
 
+import org.web3j.crypto.Credentials;
+import org.web3j.crypto.WalletUtils;
+
+import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
 
-public class RegisterActivity extends Activity {
+public class RegisterActivity extends AppCompatActivity {
 
+    boolean walletSelected;
+    String walletPath;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
-        final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        final Random r = new Random();
-        try {
-            Cryptography.buildKeyPair();
-            findViewById(R.id.create_account).setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    prefs.edit().putLong("keychain-id", r.nextLong()).apply();
-                    //TODO: create request to server
-                    startActivity(new Intent(RegisterActivity.this, MainActivity.class));
+        walletSelected = false;
+        findViewById(R.id.wallet_file).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                new ChooserDialog().with(RegisterActivity.this)
+                        .withStartFile(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath())
+                        .withChosenListener(new ChooserDialog.Result() {
+                            @Override
+                            public void onChoosePath(String path, File pathFile) {
+                                Toast.makeText(RegisterActivity.this, "FILE: " + path, Toast.LENGTH_SHORT).show();
+                                walletPath = path;
+                                ((TextView) findViewById(R.id.wallet_view)).setText(walletPath);
+                                walletSelected = true;
+                            }
+                        })
+                        .build()
+                        .show();
+            }
+        });
+        //Web3j web3 = Web3jFactory.build(new HttpService("https://ropsten.infura.io/ovliA0eGnH5yI2KdpbxX"));
+
+
+        findViewById(R.id.unlock).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    String password = ((EditText) findViewById(R.id.password)).getText().toString();
+                    String keychainID = ((EditText) findViewById(R.id.keychainid)).getText().toString();
+                    final Credentials credentials = WalletUtils.loadCredentials(password, walletPath);
+                    getSharedPreferences("prefs", MODE_PRIVATE).edit()
+                            .putString("password", password)
+                            .putString("walletPath", walletPath)
+                            .putString("keychainid", keychainID)
+                            .apply();
+                    // TODO: if new keychain ID then create public key to keychain mapping and go to web of trust creation page
+                    // else {
+                    startActivity(new Intent(RegisterActivity.this, WOTActivity.class));
+                    finish();
+                    /*
+                    AlertDialog alertDialog = new AlertDialog.Builder(RegisterActivity.this).create();
+                    alertDialog.setTitle("Authorize Public Key");
+                    alertDialog.setMessage("Please authorize this address: " + credentials.getAddress() + " on another device or via your web of trust.");
+
+                    alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Address",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                                    ClipData clip = ClipData.newPlainText("KeyChain Address", credentials.getAddress());
+                                    clipboard.setPrimaryClip(clip);
+                                }
+                            });
+                    alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Done",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                    startActivity(new Intent(RegisterActivity.this, MainActivity.class));
+                                    finish();
+                                }
+                            });
+                    alertDialog.show();
+                    */
 
                 }
-            });
-            /*
-            findViewById(R.id.register).setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (((EditText) findViewById(R.id.username)).getText().toString().length() == 0) {
-                        Toast.makeText(RegisterActivity.this, "Please enter a username", Toast.LENGTH_SHORT).show();
-                    }
-                    else {
-                        RequestQueue queue = Volley.newRequestQueue(RegisterActivity.this);
-                        String url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:3000/register_username/"; //FILL API register
-
-                        final ProgressDialog progress = new ProgressDialog(RegisterActivity.this);
-                        progress.setMessage("Creating Account");
-                        progress.setIndeterminate(true);
-                        progress.show();
-
-                        // Request a string response from the provided URL.
-                        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
-                                new Response.Listener<String>() {
-                                    @Override
-                                    public void onResponse(String response) {
-                                        progress.dismiss();
-                                        sharedPref.edit().putString("username", ((EditText) findViewById(R.id.username)).getText().toString()).apply();
-                                        startActivity(new Intent(RegisterActivity.this, MainActivity.class));
-                                    }
-                                }, new Response.ErrorListener() {
-                            @Override
-                            public void onErrorResponse(VolleyError error) {
-                                progress.dismiss();
-                                Toast.makeText(RegisterActivity.this, "Request to Server failed. Please try again.", Toast.LENGTH_LONG).show();
-                            }
-                        }
-                        ){
-                            @Override
-                            protected Map<String, String> getParams() throws AuthFailureError {
-                                Map<String,String> params = new HashMap<String, String>();
-                                try {
-                                    params.put("username", ((EditText) findViewById(R.id.username)).getText().toString());
-                                    params.put("public_key", "test");// sharedPref.getString("public_key", null));
-                                   //Log.d("IMFEFE", sharedPref.getString("public_key", null));
-                                    if (sharedPref.getString("firebase_token", null) != null) {
-                                        params.put("uid", sharedPref.getString("firebase_token", null));
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                                return params;
-                            }
-                        };
-                        queue.add(stringRequest);
-                    }
-
+                catch (Exception e) {
+                    Toast.makeText(RegisterActivity.this, "Wallet file or password is incorrect", Toast.LENGTH_LONG).show();
                 }
-            });
-            */
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(RegisterActivity.this, "No such algorithm", Toast.LENGTH_SHORT).show();
-        }
+            }
+        });
     }
 }
