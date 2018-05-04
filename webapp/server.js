@@ -83,6 +83,9 @@ app.get('/authenticate', function(req, res) {
     var token = jwt.sign({nonce: randomNonce}, app.get('secret'), {
                         expiresIn: 86400 // expires in 24 hours
                     });
+
+    //Rendering code will send information to QR code
+    //long poll to AWS instance
     res.render('authenticate.ejs', { data:randomNonce, token: token});
 })
 
