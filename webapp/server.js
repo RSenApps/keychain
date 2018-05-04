@@ -198,6 +198,12 @@ app.post('/test_auth', function(req, res) {
     var public_keyy = String(req.body.public_keyy);
 
     var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    if(!isValid) {
+      res.send(false).end();
+      return;
+    }
+    console.log("Valid signature")
     var encoded_key = key.getPublic().encode('hex');
 	// find the user
 	User.findOne({
@@ -214,19 +220,25 @@ app.post('/test_auth', function(req, res) {
             //res.json({ success: false, message: 'Authentication failed. User not found.' });
 		} else if (user) {
 
-            //query if keychain_id -> pubkey on blockchain
-		
-            var ok = verifyUser(keychain_id, encoded_key, instance);
-	    console.log('verified user?');
-            console.log(ok);
-			// check if password matches
-			if (!ok) {
-    			    res.send(false).end()
-			} else {
-          		    messageBus.emit(req.body.nonce, req.body.keychain_id)
-			    res.send(true).end()
-			}
-		}
+                    //query if keychain_id -> pubkey on blockchain
+	                
+                    //var ok = verifyUser(keychain_id, encoded_key, instance);
+                    instance.User_for_key.call(encoded_key, callback=function(err, result) {
+                        if(err) {
+                            console.log(err);
+                        } 
+			console.log('RESULT FROM QUERY');
+                        console.log(encoded_key);
+                        console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
+                        if(result == keychain_id) {
+                            messageBus.emit(req.body.nonce, req.body.keychain_id)
+	                    res.send(true).end()
+                        } else {
+                            res.send(false).end();
+                        }
+                    });
+	    }
+
 	});
 
 })

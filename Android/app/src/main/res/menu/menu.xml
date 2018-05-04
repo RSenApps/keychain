@@ -2,10 +2,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-    android:id="@+id/action_export"
+        android:id="@+id/action_wot"
+        android:icon="@drawable/ic_wot"
+        app:showAsAction="always"
+        android:title="Web of Trust Authorize"/>
+    <item
+    android:id="@+id/action_authorize"
     android:icon="@drawable/ic_file_upload"
         app:showAsAction="always"
-    android:title="Export Private Key"/>
+    android:title="Authorize Public Key"/>
     <item
         android:id="@+id/action_logout"
         android:icon="@drawable/ic_exit_to_app"

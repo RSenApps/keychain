@@ -233,17 +233,16 @@ public class MainActivity extends AppCompatActivity {
         }
         */
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        if(prefs.getLong("keychain-id", -1) == -1) {
+        if(prefs.getString("keychainid", "").equals("")) {
             Intent i = new Intent(this, RegisterActivity.class);
             startActivity(i);
             finish();
         }
-        getSupportActionBar().setTitle(Long.toHexString(prefs.getLong("keychain-id", 0)));
+        getSupportActionBar().setTitle(prefs.getString("keychainid", ""));
 
         ListView listView = (ListView) findViewById(R.id.listview_with_fab);
 
-        String[] listItwms = new String[]{"MIT Baker Card Reader", "Google Account Services", "MIT Student Certification", "reddit.com"
-        };
+        String[] listItwms = prefs.getString("wot", "").split(",");
 
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, android.R.id.text1, listItwms);
@@ -311,7 +310,7 @@ public class MainActivity extends AppCompatActivity {
         final SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
         switch (item.getItemId()) {
             case R.id.action_logout:
-                prefs.edit().putLong("keychain-id", -1)
+                prefs.edit().putString("keychainid", "")
                         .apply();
                 Intent i = new Intent(MainActivity.this, RegisterActivity.class);
                 startActivity(i);
