@@ -80,31 +80,11 @@ app.get('/', function(req, res) {
 
 app.get('/authenticate', function(req, res) {
     var randomNonce = randomBytes(32).toString('hex');
-    res.render('authenticate.ejs', { data:randomNonce});
-});
-
-app.get('/poll', function(req, res) {
-  var listener = function(res) {
-	console.log(req);
-        messageBus.once(req.query.message, function(data) {
-		    // create a token
-            console.log("EVENT CALLED");
-            console.log(app.get('secret'));
-		    var token = jwt.sign({keychain_id: req.query.message}, app.get('secret'), {
-		    	expiresIn: 86400 // expires in 24 hours
-		    });
-
-		    res.json({ // do they get this token?
-		    	success: true,
-		    	message: 'Enjoy your token!',
-		    	token: token
-		    });
-
-                    res.redirect('/');
-      })
-    }
-    listener(res);
-});
+    var token = jwt.sign({nonce: randomNonce}, app.get('secret'), {
+                        expiresIn: 86400 // expires in 24 hours
+                    });
+    res.render('authenticate.ejs', { data:randomNonce, token: token});
+})
 
 app.get('/qr/:text', function(req,res){
     var callback_url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/test_auth";
@@ -159,13 +139,14 @@ function sendRaw(rawTx) { //this is a very bad method - not sure if waiting is s
 
 //Verify that returned key/id are valid in blockchain 
 function verifyUser(id, key, instance) {
-    instance.Query_access_key.call(id, key, callback=function(err, result) {
+    instance.User_for_key.call(id, key, callback=function(err, result) {
         if(err) {
             console.log(err);
             return false;
         } 
-	console.log(result);
-        return result;
+	    console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
+        if(result == id) return true;
+        return false;
     });
 }
 
@@ -184,7 +165,7 @@ function addUser(id, key, instance) {
         gasPrice: web3.toHex(40000000000),
         to: app.get('contractAddress')
     }
-    var rawTx = txutils.functionTx(app.get('interface'), 'Give_access_to_public_key', [id, key], txOptions);
+    var rawTx = txutils.functionTx(app.get('interface'), 'Create_username', [id, key], txOptions);
     sendRaw(rawTx);
 
     user.save(function(err) {
@@ -214,6 +195,12 @@ app.post('/test_auth', function(req, res) {
     var public_keyy = String(req.body.public_keyy);
 
     var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    if(!isValid) {
+      res.send(false).end();
+      return;
+    }
+    console.log("Valid signature")
     var encoded_key = key.getPublic().encode('hex');
 	// find the user
 	User.findOne({
@@ -230,19 +217,25 @@ app.post('/test_auth', function(req, res) {
             //res.json({ success: false, message: 'Authentication failed. User not found.' });
 		} else if (user) {
 
-            //query if keychain_id -> pubkey on blockchain
-		
-            var ok = verifyUser(keychain_id, encoded_key, instance);
-	    console.log('verified user?');
-            console.log(ok);
-			// check if password matches
-			if (!ok) {
-    			    res.send(false).end()
-			} else {
-          		    messageBus.emit(req.body.nonce, req.body.keychain_id)
-			    res.send(true).end()
-			}
-		}
+                    //query if keychain_id -> pubkey on blockchain
+	                
+                    //var ok = verifyUser(keychain_id, encoded_key, instance);
+                    instance.User_for_key.call(encoded_key, callback=function(err, result) {
+                        if(err) {
+                            console.log(err);
+                        } 
+			console.log('RESULT FROM QUERY');
+                        console.log(encoded_key);
+                        console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
+                        if(result == keychain_id) {
+                            messageBus.emit(req.body.nonce, req.body.keychain_id)
+	                    res.send(true).end()
+                        } else {
+                            res.send(false).end();
+                        }
+                    });
+	    }
+
 	});
 
 })
@@ -304,18 +297,19 @@ apiRoutes.use(function(req, res, next) {
 
 	// check header or url parameters or post parameters for token
 	var token = req.body.token || req.param('token') || req.headers['x-access-token'];
-
 	// decode token
 	if (token) {
 
 		// verifies secret and checks exp
-		jwt.verify(token, app.get('superSecret'), function(err, decoded) {			
+		jwt.verify(token, app.get('secret'), function(err, decoded) {			
 			if (err) {
 				return res.json({ success: false, message: 'Failed to authenticate token.' });		
 			} else {
 				// if everything is good, save to request for use in other routes
 				req.decoded = decoded;	
-				next();
+				console.log(req.decoded)
+			 	next();
+
 			}
 		});
 
@@ -336,7 +330,7 @@ apiRoutes.use(function(req, res, next) {
 // authenticated routes
 // ---------------------------------------------------------
 apiRoutes.get('/', function(req, res) {
-    res.render('profile.ejs');
+    console.log('test')//res.render('profile.ejs');
 });
 
 apiRoutes.get('/users', function(req, res) {
@@ -349,7 +343,27 @@ apiRoutes.get('/check', function(req, res) {
 	res.json(req.decoded);
 });
 
-app.use('/api', apiRoutes);
+app.get('/api', [apiRoutes], function(req, res) {
+   res.send('Logged in!').end()
+})
+
+app.get('/poll', [apiRoutes], function(req, res) {
+ console.log('pollrec')
+  var listener = function(res) {
+        console.log(req.decoded.nonce)
+        messageBus.once(req.decoded.nonce, function(data) {
+                    // create a token
+            console.log("EVENT CALLED");
+                    var token = jwt.sign({keychain_id: req.query.message}, app.get('secret'), {
+                        expiresIn: 86400 // expires in 24 hours
+                    });
+
+                    res.send('/api?token=' + token).end();
+      })
+    }
+    listener(res);
+});
+
 
 // =================================================================
 // start the server ================================================
