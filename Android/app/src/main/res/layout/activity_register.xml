@@ -74,6 +74,7 @@
             android:layout_height="wrap_content"
             android:ems="10"
             android:hint="Wallet Password"
+            android:text="reputation"
             android:inputType="textPassword" />
 
         <Button

@@ -120,15 +120,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        KeyguardManager keyguardManager =
-                (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-        if (!keyguardManager.isKeyguardSecure()) {
-            Toast.makeText(this,
-                    "Lock screen security not enabled in Settings",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-
         /*
         if (getIntent().getBooleanExtra("fromnotification", false))
         {
@@ -233,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
         }
         */
         SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-        if(prefs.getString("keychainid", "").equals("")) {
+        if(prefs.getString("keychainid", "").length() < 1) {
             Intent i = new Intent(this, RegisterActivity.class);
             startActivity(i);
             finish();
@@ -311,84 +302,89 @@ public class MainActivity extends AppCompatActivity {
         switch (item.getItemId()) {
             case R.id.action_logout:
                 prefs.edit().putString("keychainid", "")
+                        .putString("wot", "")
                         .apply();
                 Intent i = new Intent(MainActivity.this, RegisterActivity.class);
                 startActivity(i);
                 finish();
                 return true;
-            case R.id.action_export:
-                /*
-                final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(MainActivity.this);
-                LayoutInflater factory = LayoutInflater.from(MainActivity.this);
-                final View view = factory.inflate(R.layout.dialog_fingerprint, null);
-                fingerprintDialog.setView(view);
-                fingerprintDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dlg, int sumthin) {
-                        Reprint.cancelAuthentication();
-                        dlg.dismiss();
-                    }
-                });
-                final AlertDialog dialog = fingerprintDialog.create();
-                Reprint.authenticate(new AuthenticationListener() {
-                    public void onSuccess(int moduleTag) {
-                        dialog.dismiss();
-                        */
-                        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
-                        alertDialog.setTitle("Export Keys");
-                        TextView showText = new TextView(MainActivity.this);
-                        showText.setPadding(30, 30, 30, 0);
-
-                        try {
-                            showText.setText("Public Key: " + Cryptography.getPublickey());
-                        } catch (CertificateException e) {
-                            e.printStackTrace();
-                        } catch (NoSuchAlgorithmException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (KeyStoreException e) {
-                            e.printStackTrace();
-                        }
-                        showText.setTextIsSelectable(true);
-                        alertDialog.setView(showText);
-                        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Private Key",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("private_key", ""));
-                                        clipboard.setPrimaryClip(clip);
-                                    }
-                                });
-                        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "Copy Public Key",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("public_key", ""));
-                                        clipboard.setPrimaryClip(clip);
-                                    }
-                                });
-                        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Done",
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        dialog.dismiss();
-                                    }
-                                });
-                        alertDialog.show();
-                    /*}
-
-                    public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
-                                          CharSequence errorMessage, int moduleTag, int errorCode) {
-                        Toast.makeText(MainActivity.this, "Authentication Failed. Please try again", Toast.LENGTH_SHORT).show();
-                    }
-                });
-
-
-
-                dialog.show();*/
-
-
-
+            case R.id.action_wot:
+                Intent i2 = new Intent(MainActivity.this, WOTRecoverActivity.class);
+                startActivity(i2);
                 return true;
+//            case R.id.action_export:
+//                /*
+//                final AlertDialog.Builder fingerprintDialog = new AlertDialog.Builder(MainActivity.this);
+//                LayoutInflater factory = LayoutInflater.from(MainActivity.this);
+//                final View view = factory.inflate(R.layout.dialog_fingerprint, null);
+//                fingerprintDialog.setView(view);
+//                fingerprintDialog.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+//                    public void onClick(DialogInterface dlg, int sumthin) {
+//                        Reprint.cancelAuthentication();
+//                        dlg.dismiss();
+//                    }
+//                });
+//                final AlertDialog dialog = fingerprintDialog.create();
+//                Reprint.authenticate(new AuthenticationListener() {
+//                    public void onSuccess(int moduleTag) {
+//                        dialog.dismiss();
+//                        */
+//                        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+//                        alertDialog.setTitle("Export Keys");
+//                        TextView showText = new TextView(MainActivity.this);
+//                        showText.setPadding(30, 30, 30, 0);
+//
+//                        try {
+//                            showText.setText("Public Key: " + Cryptography.getPublickey());
+//                        } catch (CertificateException e) {
+//                            e.printStackTrace();
+//                        } catch (NoSuchAlgorithmException e) {
+//                            e.printStackTrace();
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                        } catch (KeyStoreException e) {
+//                            e.printStackTrace();
+//                        }
+//                        showText.setTextIsSelectable(true);
+//                        alertDialog.setView(showText);
+//                        alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Copy Private Key",
+//                                new DialogInterface.OnClickListener() {
+//                                    public void onClick(DialogInterface dialog, int which) {
+//                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+//                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("private_key", ""));
+//                                        clipboard.setPrimaryClip(clip);
+//                                    }
+//                                });
+//                        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "Copy Public Key",
+//                                new DialogInterface.OnClickListener() {
+//                                    public void onClick(DialogInterface dialog, int which) {
+//                                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+//                                        ClipData clip = ClipData.newPlainText("KeyChain Public Key", prefs.getString("public_key", ""));
+//                                        clipboard.setPrimaryClip(clip);
+//                                    }
+//                                });
+//                        alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Done",
+//                                new DialogInterface.OnClickListener() {
+//                                    public void onClick(DialogInterface dialog, int which) {
+//                                        dialog.dismiss();
+//                                    }
+//                                });
+//                        alertDialog.show();
+//                    /*}
+//
+//                    public void onFailure(AuthenticationFailureReason failureReason, boolean fatal,
+//                                          CharSequence errorMessage, int moduleTag, int errorCode) {
+//                        Toast.makeText(MainActivity.this, "Authentication Failed. Please try again", Toast.LENGTH_SHORT).show();
+//                    }
+//                });
+//
+//
+//
+//                dialog.show();*/
+//
+//
+//
+//                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
