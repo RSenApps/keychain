@@ -174,8 +174,8 @@ function addUser(id, key, instance) {
 }
 
 app.post('/test_auth', function(req, res) {
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
 
     //check blockchain here
     var contract = web3.eth.contract(app.get('interface'));
@@ -190,11 +190,20 @@ app.post('/test_auth', function(req, res) {
 
     var nonce = String(req.body.nonce);
     var keychain_id = String(req.body.keychain_id)
-    var public_keyx = String(req.body.public_keyx);
-    var public_keyy = String(req.body.public_keyy);
+    var public_key = String(req.body.public_key);
+    var address = String(req.body.address);
+    var v = parseInt(req.body.v);
+    var r = new Buffer(req.body.r, 'hex');
+    var s = new Buffer(req.body.s, 'hex');
 
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    const pubKey = util.ecrecover(util.toBuffer(nonce), v, r, s);
+    const addrBuf = util.pubToAddress(pubKey);
+    const addr = util.bufferToHex(addrBuf);
+    var isValid = (addr == address);
+
+
     if(!isValid) {
       res.send(false).end();
       return;
