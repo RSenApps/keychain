@@ -220,7 +220,10 @@ app.post('/test_auth', function(req, res) {
       return;
     }
     console.log("Valid signature")
-    var encoded_key = key.getPublic().encode('hex');
+
+
+    
+
 
     instance.Query_user_keys.call(keychain_id, callback=function(err, result) {
         if(err) {
@@ -228,43 +231,20 @@ app.post('/test_auth', function(req, res) {
         }
         console.log("RESULT");
         console.log(result);
+	console.log(result.length);
+	for(var i = 0; i < result.length; i ++) {
+	    console.log(result[i])
+	    if(result[i] == address) {
+		console.log("FOUND MATCH");
+	        res.send(true).end();
+		return;
+	    }
+	}
+	console.log("my address");
+	console.log(address);
+	res.send(false).end();
+	return;
     });
-	// find the user
-	//User.findOne({
-	//	id: keychain_id
-	//}, function(err, user) {
-
-	//	if (err) throw err;
-
-	//	if (!user) { //make new user is user not found
-    //                 console.log('adding user');
-    //                 addUser(keychain_id, encoded_key, instance);
-    //                 messageBus.emit(req.body.nonce, req.body.keychain_id)
-	//             res.send(true).end();
-    //        //res.json({ success: false, message: 'Authentication failed. User not found.' });
-	//	} else if (user) {
-
-    //                //query if keychain_id -> pubkey on blockchain
-	//                
-    //                //var ok = verifyUser(keychain_id, encoded_key, instance);
-    //                instance.User_for_key.call(encoded_key, callback=function(err, result) {
-    //                    if(err) {
-    //                        console.log(err);
-    //                    } 
-	//		console.log('RESULT FROM QUERY');
-    //                    console.log(encoded_key);
-    //                    console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
-    //                    if(result == keychain_id) {
-    //                        messageBus.emit(req.body.nonce, req.body.keychain_id)
-	//                    res.send(true).end()
-    //                    } else {
-    //                        res.send(false).end();
-    //                    }
-    //                });
-	//    }
-
-	//});
-
 })
 
 // ---------------------------------------------------------
