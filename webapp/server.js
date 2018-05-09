@@ -1,11 +1,10 @@
-// =================================================================
 // get the packages we need ========================================
 // =================================================================
 var express 	= require('express');
 var app         = express();
 var bodyParser  = require('body-parser');
 var morgan      = require('morgan');
-var mongoose    = require('mongoose');
+//var mongoose    = require('mongoose');
 var randomstring = require("randomstring");
 
 
@@ -30,14 +29,14 @@ messageBus.setMaxListeners(100)
 
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var config = require('./config'); // get our config file
-var User   = require('./app/models/user'); // get our mongoose model
+//var User   = require('./app/models/user'); // get our mongoose model
 
 // =================================================================
 // configuration ===================================================
 // =================================================================
 var port = process.env.PORT || 8080; // used to create, sign, and verify tokens
 web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
-mongoose.connect(config.database); // connect to database
+//mongoose.connect(config.database); // connect to database
 app.set('secret', config.secret); // secret variable
 app.set('bytecode', config.bytecode);
 app.set('interface', config.interface);
@@ -90,7 +89,7 @@ app.get('/authenticate', function(req, res) {
 })
 
 app.get('/qr/:text', function(req,res){
-    var callback_url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/test_auth";
+    var callback_url = "http://ec2-52-91-15-45.compute-1.amazonaws.com:8080/test_auth";
     var input = 'keychain,'+ callback_url + ',' + req.params.text;
     var code = qr.image(input, { type: 'png', ec_level: 'H', size:5, margin: 0});
      res.setHeader('Content-type', 'image/png');
@@ -178,8 +177,8 @@ function addUser(id, key, instance) {
 }
 
 app.post('/test_auth', function(req, res) {
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
 
     //check blockchain here
     var contract = web3.eth.contract(app.get('interface'));
@@ -194,11 +193,20 @@ app.post('/test_auth', function(req, res) {
 
     var nonce = String(req.body.nonce);
     var keychain_id = String(req.body.keychain_id)
-    var public_keyx = String(req.body.public_keyx);
-    var public_keyy = String(req.body.public_keyy);
+    var public_key = String(req.body.public_key);
+    var address = String(req.body.address);
+    var v = parseInt(req.body.v);
+    var r = new Buffer(req.body.r, 'hex');
+    var s = new Buffer(req.body.s, 'hex');
 
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    const pubKey = util.ecrecover(util.toBuffer(nonce), v, r, s);
+    const addrBuf = util.pubToAddress(pubKey);
+    const addr = util.bufferToHex(addrBuf);
+    var isValid = (addr == address);
+
+
     if(!isValid) {
       res.send(false).end();
       return;
