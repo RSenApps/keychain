@@ -1,11 +1,10 @@
-// =================================================================
 // get the packages we need ========================================
 // =================================================================
 var express 	= require('express');
 var app         = express();
 var bodyParser  = require('body-parser');
 var morgan      = require('morgan');
-var mongoose    = require('mongoose');
+//var mongoose    = require('mongoose');
 var randomstring = require("randomstring");
 
 
@@ -30,14 +29,14 @@ messageBus.setMaxListeners(100)
 
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var config = require('./config'); // get our config file
-var User   = require('./app/models/user'); // get our mongoose model
+//var User   = require('./app/models/user'); // get our mongoose model
 
 // =================================================================
 // configuration ===================================================
 // =================================================================
 var port = process.env.PORT || 8080; // used to create, sign, and verify tokens
 web3 = new Web3(new Web3.providers.HttpProvider('https://ropsten.infura.io/'));
-mongoose.connect(config.database); // connect to database
+//mongoose.connect(config.database); // connect to database
 app.set('secret', config.secret); // secret variable
 app.set('bytecode', config.bytecode);
 app.set('interface', config.interface);
@@ -83,11 +82,14 @@ app.get('/authenticate', function(req, res) {
     var token = jwt.sign({nonce: randomNonce}, app.get('secret'), {
                         expiresIn: 86400 // expires in 24 hours
                     });
+
+    //Rendering code will send information to QR code
+    //long poll to AWS instance
     res.render('authenticate.ejs', { data:randomNonce, token: token});
 })
 
 app.get('/qr/:text', function(req,res){
-    var callback_url = "http://ec2-54-173-230-137.compute-1.amazonaws.com:8080/test_auth";
+    var callback_url = "http://ec2-52-91-15-45.compute-1.amazonaws.com:8080/test_auth";
     var input = 'keychain,'+ callback_url + ',' + req.params.text;
     var code = qr.image(input, { type: 'png', ec_level: 'H', size:5, margin: 0});
      res.setHeader('Content-type', 'image/png');
@@ -175,8 +177,8 @@ function addUser(id, key, instance) {
 }
 
 app.post('/test_auth', function(req, res) {
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex')
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS});
 
     //check blockchain here
     var contract = web3.eth.contract(app.get('interface'));
@@ -191,53 +193,58 @@ app.post('/test_auth', function(req, res) {
 
     var nonce = String(req.body.nonce);
     var keychain_id = String(req.body.keychain_id)
-    var public_keyx = String(req.body.public_keyx);
-    var public_keyy = String(req.body.public_keyy);
+    var public_key = String(req.body.public_key);
+    var address = String(req.body.address);
+    var v = parseInt(req.body.v);
+    var r = new Buffer(req.body.r, 'hex');
+    var s = new Buffer(req.body.s, 'hex');
+    var msg = web3.sha3(nonce+keychain_id)
+    //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
+    //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+    const pubKey = util.ecrecover(util.toBuffer(msg), v, r, s);
+    const addrBuf = util.pubToAddress(pubKey);
+    const addr = util.bufferToHex(addrBuf);
+    //console.log("TEST");
+    //console.log(addr);
+    //console.log(v);
+    //console.log(req.body.r);
+    //console.log(req.body.s);
+    //console.log(nonce);
+    //console.log(address);
+    var isValid = (addr == address);
 
-    var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
-    var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
+
     if(!isValid) {
       res.send(false).end();
+      console.log("INVALID SIGNATURE");
       return;
     }
     console.log("Valid signature")
-    var encoded_key = key.getPublic().encode('hex');
-	// find the user
-	User.findOne({
-		id: keychain_id
-	}, function(err, user) {
 
-		if (err) throw err;
 
-		if (!user) { //make new user is user not found
-                     console.log('adding user');
-                     addUser(keychain_id, encoded_key, instance);
-                     messageBus.emit(req.body.nonce, req.body.keychain_id)
-	             res.send(true).end();
-            //res.json({ success: false, message: 'Authentication failed. User not found.' });
-		} else if (user) {
+    
 
-                    //query if keychain_id -> pubkey on blockchain
-	                
-                    //var ok = verifyUser(keychain_id, encoded_key, instance);
-                    instance.User_for_key.call(encoded_key, callback=function(err, result) {
-                        if(err) {
-                            console.log(err);
-                        } 
-			console.log('RESULT FROM QUERY');
-                        console.log(encoded_key);
-                        console.log(result); //CHECK THAT RESULT IS A STRING!!!!!
-                        if(result == keychain_id) {
-                            messageBus.emit(req.body.nonce, req.body.keychain_id)
-	                    res.send(true).end()
-                        } else {
-                            res.send(false).end();
-                        }
-                    });
+
+    instance.Query_user_keys.call(keychain_id, callback=function(err, result) {
+        if(err) {
+            console.log(err);
+        }
+        console.log("RESULT");
+        console.log(result);
+	console.log(result.length);
+	for(var i = 0; i < result.length; i ++) {
+	    console.log(result[i])
+	    if(result[i] == address) {
+		console.log("FOUND MATCH");
+	        res.send(true).end();
+		return;
 	    }
-
-	});
-
+	}
+	console.log("my address");
+	console.log(address);
+	res.send(false).end();
+	return;
+    });
 })
 
 // ---------------------------------------------------------
