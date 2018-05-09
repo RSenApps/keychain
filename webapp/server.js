@@ -213,6 +213,14 @@ app.post('/test_auth', function(req, res) {
     }
     console.log("Valid signature")
     var encoded_key = key.getPublic().encode('hex');
+
+    instance.queryUserKeys.call(user, callback=function(err, result) {
+        if(err) {
+            console.log(err);
+        }
+        console.log("RESULT");
+        console.log(result);
+    }
 	// find the user
 	//User.findOne({
 	//	id: keychain_id
