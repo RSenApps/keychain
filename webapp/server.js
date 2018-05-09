@@ -195,10 +195,10 @@ app.post('/test_auth', function(req, res) {
     var v = parseInt(req.body.v);
     var r = new Buffer(req.body.r, 'hex');
     var s = new Buffer(req.body.s, 'hex');
-
+    var msg = web3.sha3(nonce)
     //var key = ec.keyFromPublic({x: req.body.public_keyx, y: req.body.public_keyy}, 'hex');
     //var isValid = key.verify(req.body.nonce + req.body.keychain_id, {r: req.body.signatureR, s: req.body.signatureS})
-    const pubKey = util.ecrecover(util.toBuffer(nonce), v, r, s);
+    const pubKey = util.ecrecover(util.toBuffer(msg), v, r, s);
     const addrBuf = util.pubToAddress(pubKey);
     const addr = util.bufferToHex(addrBuf);
     var isValid = (addr == address);
