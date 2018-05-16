@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -35,6 +36,16 @@ public class WOTRecoverActivity extends AppCompatActivity {
 
     }
 
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
     class RecoverWOTTask extends AsyncTask<Object, Void, Boolean> {
 
         protected Boolean doInBackground(Object... params) {
@@ -49,9 +60,8 @@ public class WOTRecoverActivity extends AppCompatActivity {
                 final Credentials credentials;
                 credentials = WalletUtils.loadCredentials(password, prefs.getString("walletPath", ""));
                 Web3j web3j = Web3jFactory.build(new HttpService("https://ropsten.infura.io/ovliA0eGnH5yI2KdpbxX"));
-                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(11), BigInteger.valueOf(100000));
-                contract.Do_recover_address(keychainID.getBytes(), idToRecover.getBytes(), newAddress).sendAsync();
-                contract.Do_recover(idToRecover.getBytes(), newAddress).sendAsync();
+                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(100), BigInteger.valueOf(400000));
+                Log.d("test", contract.Do_recover_address(idToRecover.getBytes(), keychainID.getBytes(), newAddress).send().toString());
                 return true;
             } catch (Exception e) {
                 e.printStackTrace();

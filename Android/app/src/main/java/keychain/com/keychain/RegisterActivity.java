@@ -131,11 +131,11 @@ public class RegisterActivity extends AppCompatActivity {
                 final Credentials credentials = WalletUtils.loadCredentials(strings[0], walletPath);
 
                 Web3j web3j = Web3jFactory.build(new HttpService("https://ropsten.infura.io/ovliA0eGnH5yI2KdpbxX"));
-                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(11), BigInteger.valueOf(100000));
+                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(100), BigInteger.valueOf(400000));
                 Boolean userExists = contract.Query_user_exists(strings[1].getBytes()).send();
                 if (!userExists) {
                     // if new keychain ID then create public key to keychain mapping and go to web of trust creation page
-                    contract.Create_username(strings[1].getBytes(), credentials.getAddress()).sendAsync();
+                    contract.Create_username(strings[1].getBytes(), credentials.getAddress()).send();
                     return true;
                 } else{
                     return false;

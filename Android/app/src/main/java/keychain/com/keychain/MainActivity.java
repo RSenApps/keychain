@@ -13,6 +13,7 @@ import android.graphics.Bitmap;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.security.keystore.UserNotAuthenticatedException;
@@ -42,10 +43,18 @@ import com.android.volley.toolbox.Volley;
 import com.github.ajalt.reprint.core.AuthenticationFailureReason;
 import com.github.ajalt.reprint.core.AuthenticationListener;
 import com.github.ajalt.reprint.core.Reprint;
+import com.kenai.jffi.Main;
 
 import net.glxn.qrgen.android.QRCode;
 
+import org.web3j.crypto.Credentials;
+import org.web3j.crypto.WalletUtils;
+import org.web3j.protocol.Web3j;
+import org.web3j.protocol.Web3jFactory;
+import org.web3j.protocol.http.HttpService;
+
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.KeyStoreException;
@@ -57,7 +66,9 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static android.nfc.NdefRecord.createMime;
@@ -232,12 +243,13 @@ public class MainActivity extends AppCompatActivity {
         getSupportActionBar().setTitle(prefs.getString("keychainid", ""));
 
         ListView listView = (ListView) findViewById(R.id.listview_with_fab);
-
         String[] listItwms = prefs.getString("wot", "").split(",");
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this,
                 android.R.layout.simple_list_item_1, android.R.id.text1, listItwms);
         listView.setAdapter(adapter);
+        new GetWOTTask().execute();
+
         /*
         findViewById(R.id.show_public).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -387,6 +399,40 @@ public class MainActivity extends AppCompatActivity {
 //                return true;
             default:
                 return super.onOptionsItemSelected(item);
+        }
+    }
+
+    class GetWOTTask extends AsyncTask<Void, Void, String[]> {
+
+        protected String[] doInBackground(Void... strings) {
+            try {
+                SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+                String password = prefs.getString("password", "");
+                String keychainID = prefs.getString("keychainid", "");
+
+                final Credentials credentials;
+                credentials = WalletUtils.loadCredentials(password, prefs.getString("walletPath", ""));
+                Web3j web3j = Web3jFactory.build(new HttpService("https://ropsten.infura.io/ovliA0eGnH5yI2KdpbxX"));
+                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(100), BigInteger.valueOf(400000));
+                List<byte[]> results = contract.Query_recovery_users(keychainID.getBytes()).send();
+                String[] resultStrings = new String[results.size()];
+                int i = 0;
+                for (byte[] result : results) {
+                    resultStrings[i++] = new String(result);
+                }
+                return resultStrings;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return new String[]{};
+        }
+
+        protected void onPostExecute(String[] items) {
+            ListView listView = (ListView) findViewById(R.id.listview_with_fab);
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this,
+                    android.R.layout.simple_list_item_1, android.R.id.text1, items);
+            listView.setAdapter(adapter);
         }
     }
 }

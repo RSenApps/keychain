@@ -90,8 +90,8 @@ public class WOTActivity extends AppCompatActivity {
                 final Credentials credentials;
                 credentials = WalletUtils.loadCredentials(password, prefs.getString("walletPath", ""));
                 Web3j web3j = Web3jFactory.build(new HttpService("https://ropsten.infura.io/ovliA0eGnH5yI2KdpbxX"));
-                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(11), BigInteger.valueOf(100000));
-                contract.Create_web_of_trust(keychainID.getBytes(), addressList, BigInteger.valueOf(addressList.size()), BigInteger.valueOf(numNeeded));
+                KeychainIdentity contract = new KeychainIdentity(web3j, credentials, BigInteger.valueOf(100), BigInteger.valueOf(400000));
+                contract.Create_web_of_trust(keychainID.getBytes(), addressList, BigInteger.valueOf(addressList.size()), BigInteger.valueOf(numNeeded)).send();
                 return true;
             } catch (Exception e) {
                 e.printStackTrace();
