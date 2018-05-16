@@ -11,7 +11,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enter the addresses that you trust to recover your account:"
+        android:text="Enter the Keychain IDs that you trust to recover your account:"
         android:textSize="20sp" />
 
     <EditText

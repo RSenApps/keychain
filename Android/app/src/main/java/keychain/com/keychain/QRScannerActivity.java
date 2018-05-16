@@ -26,6 +26,16 @@ import com.android.volley.toolbox.Volley;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.Result;
 
+import org.spongycastle.asn1.x9.X9ECParameters;
+import org.spongycastle.crypto.ec.CustomNamedCurves;
+import org.spongycastle.crypto.params.ECDomainParameters;
+import org.spongycastle.math.ec.ECPoint;
+import org.spongycastle.math.ec.FixedPointCombMultiplier;
+import org.web3j.crypto.Credentials;
+import org.web3j.crypto.ECDSASignature;
+import org.web3j.crypto.Sign;
+import org.web3j.crypto.WalletUtils;
+
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,6 +57,9 @@ public class QRScannerActivity extends Activity implements ZXingScannerView.Resu
     public static final int PERMISSION_REQUEST_CAMERA = 1;
     private String callbackURL;
     private String nonce;
+
+    private Credentials credentials;
+
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -57,6 +70,14 @@ public class QRScannerActivity extends Activity implements ZXingScannerView.Resu
         if (!haveCameraPermission())
             requestPermissions(new String[]{android.Manifest.permission.CAMERA}, PERMISSION_REQUEST_CAMERA);
 
+        SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
+        try {
+            credentials = WalletUtils.loadCredentials(prefs.getString("password", ""), prefs.getString("walletPath", ""));
+        } catch (Exception e) {
+            startActivity(new Intent(this, RegisterActivity.class));
+            finish();
+            return;
+        }
     }
 
     @Override
@@ -133,13 +154,10 @@ public class QRScannerActivity extends Activity implements ZXingScannerView.Resu
 
     private void signNonce(String message) {
         try {
-            BigInteger[] output = Cryptography.sign(message + Long.toHexString(getSharedPreferences("prefs", MODE_PRIVATE).getLong("keychain-id", -1)));
-            sendResponse(output);
-        } catch (UserNotAuthenticatedException e) {
-            Intent in = ((KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE)).createConfirmDeviceCredentialIntent(
-                    "KeyChain", "Please log in to confirm access to your account.");
-            startActivityForResult(in, 1);
-        } catch (Exception e) {
+            Sign.SignatureData sig = Sign.signMessage((message + getSharedPreferences("prefs", MODE_PRIVATE).getString("keychainid", "")).getBytes(), credentials.getEcKeyPair());
+            sendResponse(sig);
+        }
+        catch (Exception e) {
             e.printStackTrace();
             mScannerView.resumeCameraPreview(this);
         }
@@ -155,14 +173,12 @@ public class QRScannerActivity extends Activity implements ZXingScannerView.Resu
         }
         return new String(hexChars);
     }
-
-    private void sendResponse(final BigInteger[] signedNonce) {
+    private void sendResponse(final Sign.SignatureData signedNonce) {
         try {
             SharedPreferences prefs = getSharedPreferences("prefs", MODE_PRIVATE);
-            final long keychainid = prefs.getLong("keychain-id", -1);
-            final String publicKey = Cryptography.getPublickey();
-            final String publicKeyX = bytesToHex(Cryptography.getPublicPoint().getAffineX().toByteArray());
-            final String publicKeyY = bytesToHex(Cryptography.getPublicPoint().getAffineY().toByteArray());
+            final String keychainid = prefs.getString("keychainid", "");
+            //final String publicKeyX = bytesToHex(point.getAffineXCoord().toBigInteger().toByteArray());
+            //final String publicKeyY = bytesToHex(point.getAffineYCoord().toBigInteger().toByteArray());
 
             StringRequest stringRequest = new StringRequest(Request.Method.POST, callbackURL,
                     new Response.Listener<String>() {
@@ -176,25 +192,27 @@ public class QRScannerActivity extends Activity implements ZXingScannerView.Resu
                 public void onErrorResponse(VolleyError error) {
                     mScannerView.resumeCameraPreview(QRScannerActivity.this);
                     Toast.makeText(QRScannerActivity.this, "Request to Server failed. Please try again.", Toast.LENGTH_LONG).show();
-                    Log.d(TAG, error.getMessage());
                 }
             }
             ){
                 @Override
                 protected Map<String, String> getParams() throws AuthFailureError {
                     Map<String,String> params = new HashMap<String, String>();
-                    params.put("signatureR", bytesToHex(signedNonce[0].toByteArray()));
-                    params.put("signatureS", bytesToHex(signedNonce[1].toByteArray()));
+                    params.put("v", String.valueOf(signedNonce.getV()));
+                    params.put("r", bytesToHex(signedNonce.getR()));
+                    params.put("s", bytesToHex(signedNonce.getS()));
                     params.put("nonce", nonce);
-                    params.put("keychain_id", Long.toHexString(keychainid));
-                    params.put("public_keyx", publicKeyX);
-                    params.put("public_keyy", publicKeyY);
-                    Log.d("fefefe", bytesToHex(signedNonce[0].toByteArray()));
-                    Log.d("fefefe", bytesToHex(signedNonce[1].toByteArray()));
+                    params.put("keychain_id",keychainid);
+                    params.put("public_key", bytesToHex(credentials.getEcKeyPair().getPublicKey().toByteArray()));
+                    params.put("address", credentials.getAddress());
+                    Log.d("fefefe", String.valueOf(signedNonce.getV()));
+                    Log.d("fefefe", bytesToHex(signedNonce.getR()));
+                    Log.d("fefefe", bytesToHex(signedNonce.getS()));
+
                     Log.d("fefefe", nonce);
-                    Log.d("fefefe", publicKey);
-                    Log.d("fefefe", publicKeyX);
-                    Log.d("fefefe", publicKeyY);
+                    Log.d("fefefe", keychainid);
+                    Log.d("fefefe", credentials.getAddress());
+                    Log.d("fefefe", bytesToHex(credentials.getEcKeyPair().getPublicKey().toByteArray()));
 
                     return params;
                 }
