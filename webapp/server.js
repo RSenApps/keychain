@@ -89,7 +89,7 @@ app.get('/authenticate', function(req, res) {
 })
 
 app.get('/qr/:text', function(req,res){
-    var callback_url = "http://ec2-52-91-15-45.compute-1.amazonaws.com:8080/test_auth";
+    var callback_url = "http://ec2-18-205-185-7.compute-1.amazonaws.com:8080/test_auth";
     var input = 'keychain,'+ callback_url + ',' + req.params.text;
     var code = qr.image(input, { type: 'png', ec_level: 'H', size:5, margin: 0});
      res.setHeader('Content-type', 'image/png');

@@ -10,7 +10,7 @@
               headers: {
                 'x-access-token': '<%= token %>'
               },
-              url: 'http://ec2-52-91-15-45.compute-1.amazonaws.com:8080/poll', 
+              url: 'http://ec2-18-205-185-7.compute-1.amazonaws.com:8080/poll', 
               success: function(data){
                  window.location = data  
               },
@@ -36,7 +36,6 @@
 
     <div class="row">
 
-    <%= data %>
     <img src="/qr/<%= data %>">
 
     </div>
