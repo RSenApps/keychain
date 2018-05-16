@@ -236,6 +236,8 @@ app.post('/test_auth', function(req, res) {
 	    console.log(result[i])
 	    if(result[i] == address) {
 		console.log("FOUND MATCH");
+		console.log(nonce)
+		messageBus.emit(nonce, 'MESSAGE');
 	        res.send(true).end();
 		return;
 	    }
